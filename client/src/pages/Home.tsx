@@ -106,7 +106,7 @@ export default function Home() {
                 Browse Content
               </Button>
             </Link>
-            <Link href="/become-creator">
+            <Link href="/browse">
               <Button size="lg" variant="outline" data-testid="button-become-creator">
                 <Sparkles className="mr-2 h-5 w-5" />
                 Become a Creator

@@ -14,11 +14,9 @@ export function Header({ userRole, onSearch }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center gap-4 px-4">
-        <Link href="/">
-          <a className="flex items-center gap-2 font-bold text-xl hover-elevate px-3 py-2 rounded-md" data-testid="link-home">
-            <Video className="h-6 w-6 text-primary" />
-            CreatorHub
-          </a>
+        <Link href="/" className="flex items-center gap-2 font-bold text-xl hover-elevate px-3 py-2 rounded-md" data-testid="link-home">
+          <Video className="h-6 w-6 text-primary" />
+          CreatorHub
         </Link>
         
         <div className="flex-1 max-w-md mx-4">
@@ -36,30 +34,24 @@ export function Header({ userRole, onSearch }: HeaderProps) {
 
         <nav className="flex items-center gap-2">
           <Link href="/browse">
-            <a>
-              <Button variant="ghost" data-testid="button-browse">
-                Browse
-              </Button>
-            </a>
+            <Button variant="ghost" data-testid="button-browse">
+              Browse
+            </Button>
           </Link>
           
           {userRole === "creator" && (
             <Link href="/creator/dashboard">
-              <a>
-                <Button variant="ghost" data-testid="button-creator-dashboard">
-                  Dashboard
-                </Button>
-              </a>
+              <Button variant="ghost" data-testid="button-creator-dashboard">
+                Dashboard
+              </Button>
             </Link>
           )}
           
           {userRole === "consumer" && (
             <Link href="/consumer/dashboard">
-              <a>
-                <Button variant="ghost" data-testid="button-consumer-dashboard">
-                  My Subscriptions
-                </Button>
-              </a>
+              <Button variant="ghost" data-testid="button-consumer-dashboard">
+                My Subscriptions
+              </Button>
             </Link>
           )}
           
