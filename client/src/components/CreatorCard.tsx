@@ -60,13 +60,29 @@ export function CreatorCard({
                 Subscribed
               </Badge>
             ) : (
-              <Button
-                className="w-full"
-                onClick={onSubscribe}
-                data-testid="button-subscribe"
-              >
-                Subscribe - ${subscriptionPrice}/mo
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  className="w-full"
+                  onClick={onSubscribe}
+                  data-testid="button-subscribe"
+                >
+                  Subscribe - ${subscriptionPrice}/mo
+                </Button>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or pay with</span>
+                  </div>
+                </div>
+                <div className="bg-[#0070BA] hover-elevate active-elevate-2 text-white rounded-md py-2 px-4 text-center font-semibold cursor-pointer" onClick={onSubscribe} data-testid="button-paypal-subscribe">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="font-bold">Pay</span>
+                    <span className="font-bold">Pal</span>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>

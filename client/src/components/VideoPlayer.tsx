@@ -21,7 +21,7 @@ export function VideoPlayer({ videoUrl, isLocked, onUnlock, thumbnail }: VideoPl
           />
         )}
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
-        <div className="relative text-center p-8 z-10">
+        <div className="relative text-center p-8 z-10 max-w-md mx-auto">
           <div className="bg-primary/10 rounded-full p-6 mx-auto w-fit mb-6">
             <Lock className="h-12 w-12 text-primary" />
           </div>
@@ -29,9 +29,25 @@ export function VideoPlayer({ videoUrl, isLocked, onUnlock, thumbnail }: VideoPl
           <p className="text-muted-foreground mb-6">
             Subscribe to this creator to unlock this video
           </p>
-          <Button size="lg" onClick={onUnlock} data-testid="button-unlock">
-            Subscribe to Unlock
-          </Button>
+          <div className="space-y-3">
+            <Button size="lg" className="w-full" onClick={onUnlock} data-testid="button-unlock">
+              Subscribe to Unlock
+            </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-background/20" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background/80 backdrop-blur-sm px-2 text-muted-foreground">Or pay with</span>
+              </div>
+            </div>
+            <div className="bg-[#0070BA] hover-elevate active-elevate-2 text-white rounded-md py-3 px-4 text-center font-semibold cursor-pointer" onClick={onUnlock} data-testid="button-paypal-unlock">
+              <div className="flex items-center justify-center gap-2">
+                <span className="font-bold text-lg">Pay</span>
+                <span className="font-bold text-lg">Pal</span>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
     );

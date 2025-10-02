@@ -83,14 +83,22 @@ export default function VideoPage() {
                   <AvatarFallback>SW</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-2 gap-4">
                     <div>
                       <h3 className="font-semibold">Sarah Wellness</h3>
                       <p className="text-sm text-muted-foreground">12.5K subscribers</p>
                     </div>
-                    <Button data-testid="button-subscribe-creator">
-                      Subscribe - $9.99/mo
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button data-testid="button-subscribe-creator">
+                        Subscribe - $9.99/mo
+                      </Button>
+                      <div className="bg-[#0070BA] hover-elevate active-elevate-2 text-white rounded-md px-4 flex items-center justify-center font-semibold cursor-pointer min-w-[100px]" data-testid="button-paypal-subscribe-creator">
+                        <div className="flex items-center gap-1">
+                          <span className="font-bold text-sm">Pay</span>
+                          <span className="font-bold text-sm">Pal</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <p className="text-sm mt-2">
                     Join me for a gentle morning yoga routine perfect for beginners. This 15-minute practice will help you wake up your body, improve flexibility, and start your day with positive energy.
