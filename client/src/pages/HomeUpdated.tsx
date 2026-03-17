@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
-import { videoApi } from "@/lib/api";
+import { videoApi, creatorApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { VideoCard } from "@/components/VideoCard";
@@ -26,14 +26,26 @@ export default function HomePage() {
   const { user, isAuthenticated, logout } = useAuth();
   const [_location, navigate] = useLocation();
 
-  const { data: videos = [], isLoading } = useQuery({
-    queryKey: ["videos"],
-    queryFn: () => videoApi.getAll(),
+  const { data: videosWithCreators = [], isLoading } = useQuery({
+    queryKey: ["videos-with-creators-home", isAuthenticated],
+    queryFn: async () => {
+      const videos: any[] = await videoApi.getAll();
+      const filtered = isAuthenticated
+        ? videos.slice(0, 6)
+        : videos.filter((v: any) => v.type === "free").slice(0, 6);
+      const creatorIds: string[] = Array.from(new Set(filtered.map((v: any) => v.creatorId)));
+      const creators = await Promise.all(
+        creatorIds.map((id) => creatorApi.getById(id).catch(() => null))
+      );
+      const creatorMap = Object.fromEntries(
+        creators.filter(Boolean).map((c: any) => [c.id, c])
+      );
+      return filtered.map((v: any) => ({
+        ...v,
+        _creator: creatorMap[v.creatorId] || null,
+      }));
+    },
   });
-
-  const displayVideos = isAuthenticated
-    ? videos.slice(0, 6)
-    : videos.filter((v: any) => v.type === "free").slice(0, 6);
 
   const features = [
     {
@@ -168,12 +180,14 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
               {[...Array(6)].map((_, i) => <VideoSkeleton key={i} />)}
             </div>
-          ) : displayVideos.length > 0 ? (
+          ) : videosWithCreators.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {displayVideos.map((video: any) => (
+              {videosWithCreators.map((video: any) => (
                 <VideoCard
                   key={video.id}
                   video={video}
+                  creatorName={video._creator?.user?.username || "Creator"}
+                  creatorAvatar={video._creator?.imageUrl || undefined}
                   onClick={() => navigate(`/video/${video.id}`)}
                 />
               ))}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { videoApi, categoryApi } from "@/lib/api";
+import { videoApi, categoryApi, creatorApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { VideoCard } from "@/components/VideoCard";
@@ -32,9 +32,24 @@ export default function BrowsePageUpdated() {
   const [contentType, setContentType] = useState<"all" | "free" | "paid">("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const { data: videos = [], isLoading } = useQuery({
-    queryKey: ["videos"],
-    queryFn: () => videoApi.getAll(),
+  const { data: videosWithCreators = [], isLoading } = useQuery({
+    queryKey: ["videos-with-creators"],
+    queryFn: async () => {
+      const videos: any[] = await videoApi.getAll();
+      // Fetch all unique creatorIds
+      const creatorIds: string[] = Array.from(new Set(videos.map((v: any) => v.creatorId)));
+      const creators = await Promise.all(
+        creatorIds.map((id) => creatorApi.getById(id).catch(() => null))
+      );
+      const creatorMap = Object.fromEntries(
+        creators.filter(Boolean).map((c: any) => [c.id, c])
+      );
+      // Attach creator info to each video
+      return videos.map((v: any) => ({
+        ...v,
+        _creator: creatorMap[v.creatorId] || null,
+      }));
+    },
   });
 
   const { data: categories = [] } = useQuery<{ id: string; name: string }[]>({
@@ -42,7 +57,7 @@ export default function BrowsePageUpdated() {
     queryFn: () => categoryApi.getAll(),
   });
 
-  const filteredVideos = videos.filter((video: any) => {
+  const filteredVideos = videosWithCreators.filter((video: any) => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       if (!video.title?.toLowerCase().includes(q) && !video.description?.toLowerCase().includes(q)) return false;
@@ -227,6 +242,8 @@ export default function BrowsePageUpdated() {
               <VideoCard
                 key={video.id}
                 video={video}
+                creatorName={video._creator?.user?.username || "Creator"}
+                creatorAvatar={video._creator?.imageUrl || undefined}
                 onClick={() => navigate(`/video/${video.id}`)}
               />
             ))}

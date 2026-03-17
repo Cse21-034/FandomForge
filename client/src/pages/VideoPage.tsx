@@ -39,10 +39,23 @@ export default function VideoPage() {
 
   const { data: relatedVideos = [] } = useQuery({
     queryKey: ["videos", "related", video?.creatorId],
-    queryFn: () =>
-      video?.creatorId
-        ? videoApi.getByCreatorId(video.creatorId)
-        : Promise.resolve([]),
+    queryFn: async () => {
+      if (!video?.creatorId) return [];
+      const videos: any[] = await videoApi.getByCreatorId(video.creatorId);
+      // Fetch all creators for these videos in parallel
+      const creatorIds: string[] = Array.from(new Set(videos.map((v: any) => v.creatorId)));
+      const creators = await Promise.all(
+        creatorIds.map((id) => creatorApi.getById(id).catch(() => null))
+      );
+      const creatorMap = Object.fromEntries(
+        creators.filter(Boolean).map((c: any) => [c.id, c])
+      );
+      // Attach creator info to each video
+      return videos.map((v: any) => ({
+        ...v,
+        _creator: creatorMap[v.creatorId] || null,
+      }));
+    },
     enabled: !!video?.creatorId,
   });
 
@@ -352,6 +365,8 @@ export default function VideoPage() {
                   <VideoCard
                     key={v.id}
                     video={v}
+                    creatorName={v._creator?.user?.username || "Creator"}
+                    creatorAvatar={v._creator?.imageUrl || undefined}
                     onClick={() => navigate(`/video/${v.id}`)}
                   />
                 ))}

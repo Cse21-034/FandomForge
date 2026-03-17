@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/StatCard";
 import { useLocation } from "wouter";
 import { Users, Video, Heart, Compass, LayoutDashboard } from "lucide-react";
-import { creatorApi, videoApi } from "@/lib/api";
+import { creatorApi, videoApi, creatorApi as importedCreatorApi } from "@/lib/api";
 
 function SkeletonCard() {
   return <div className="aspect-video rounded-2xl skeleton-wave" />;
@@ -23,9 +23,23 @@ export default function ConsumerDashboard() {
     enabled: isAuthenticated,
   });
 
-  const { data: videos = [], isLoading: videosLoading } = useQuery({
-    queryKey: ["consumer-videos"],
-    queryFn: () => videoApi.getAll(),
+  const { data: videosWithCreators = [], isLoading: videosLoading } = useQuery({
+    queryKey: ["consumer-videos-with-creators", isAuthenticated],
+    queryFn: async () => {
+      if (!isAuthenticated) return [];
+      const videos: any[] = await videoApi.getAll();
+      const creatorIds: string[] = Array.from(new Set(videos.map((v: any) => v.creatorId)));
+      const creators = await Promise.all(
+        creatorIds.map((id) => importedCreatorApi.getById(id).catch(() => null))
+      );
+      const creatorMap = Object.fromEntries(
+        creators.filter(Boolean).map((c: any) => [c.id, c])
+      );
+      return videos.map((v: any) => ({
+        ...v,
+        _creator: creatorMap[v.creatorId] || null,
+      }));
+    },
     enabled: isAuthenticated,
   });
 
@@ -45,7 +59,7 @@ export default function ConsumerDashboard() {
 
   if (!isAuthenticated) { navigate("/auth"); return null; }
 
-  const freeVideos = videos.filter((v: any) => v.type === "free");
+  const freeVideos = videosWithCreators.filter((v: any) => v.type === "free");
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
@@ -143,6 +157,8 @@ export default function ConsumerDashboard() {
                 <VideoCard
                   key={video.id}
                   video={video}
+                  creatorName={video._creator?.user?.username || "Creator"}
+                  creatorAvatar={video._creator?.imageUrl || undefined}
                   onClick={() => navigate(`/video/${video.id}`)}
                 />
               ))}
