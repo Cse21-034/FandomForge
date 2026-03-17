@@ -199,16 +199,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/videos/:id", async (req, res) => {
-    try {
-      const video = await storage.getVideo(req.params.id);
-      if (!video) { res.status(404).json({ error: "Video not found" }); return; }
-      res.json(video);
-    } catch (error) {
-      console.error("Get video error:", error);
-      res.status(500).json({ error: "Failed to fetch video" });
+// =====================================================================
+// REPLACE the existing GET /api/videos/:id route in server/routes.ts
+// with this version. It checks subscription before returning videoUrl.
+// =====================================================================
+
+// In your server/routes.ts, find:
+//   app.get("/api/videos/:id", async (req, res) => {
+// and replace the entire handler with this:
+
+app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
+  try {
+    const video = await storage.getVideo(req.params.id);
+    if (!video) {
+      res.status(404).json({ error: "Video not found" });
+      return;
     }
-  });
+
+    // Free videos — anyone can see full details including videoUrl
+    if (video.type === "free") {
+      res.json(video);
+      return;
+    }
+
+    // ── PAID VIDEO ── access control below ──────────────────────────
+
+    // Try to get the logged-in user from the token (optional auth)
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    let userId: string | null = null;
+    let userCreatorId: string | null = null;
+
+    if (token) {
+      const { verifyToken } = await import("./auth");
+      const decoded = verifyToken(token);
+      if (decoded) {
+        userId = decoded.userId;
+        // Check if this user is a creator and get their creatorId
+        const creator = await storage.getCreatorByUserId(decoded.userId);
+        if (creator) userCreatorId = creator.id;
+      }
+    }
+
+    // Rule 1: The creator who OWNS this video can always watch it
+    if (userCreatorId && userCreatorId === video.creatorId) {
+      res.json(video);
+      return;
+    }
+
+    // Rule 2: A subscribed user can watch it
+    if (userId) {
+      const subscription = await storage.getActiveSubscription(userId, video.creatorId);
+      if (subscription) {
+        res.json(video);
+        return;
+      }
+    }
+
+    // Rule 3: Everyone else gets metadata but NO videoUrl
+    // This prevents bypassing the UI to grab the stream URL directly
+    res.json({
+      ...video,
+      videoUrl: null,   // strip the actual video URL
+      locked: true,     // tell frontend it's locked
+    });
+
+  } catch (error) {
+    console.error("Get video error:", error);
+    res.status(500).json({ error: "Failed to fetch video" });
+  }
+});
 
   // ✅ FIXED: decimal price coercion + safe categoryId handling
   app.post("/api/videos", authenticateToken, requireRole("creator"),

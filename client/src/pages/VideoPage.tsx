@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VideoCard } from "@/components/VideoCard";
 import {
-  ThumbsUp, Share2, Loader2, Check, Eye, Calendar, ArrowLeft,
-  Users, CheckCircle,
+  ThumbsUp, Share2, Loader2, Check, Eye, Calendar,
+  ArrowLeft, Users, CheckCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { videoApi, creatorApi, engagementApi, subscriptionApi } from "@/lib/api";
@@ -27,32 +27,41 @@ export default function VideoPage() {
 
   const { data: video, isLoading, refetch: refetchVideo } = useQuery({
     queryKey: ["video", videoId],
-    queryFn: () => videoId ? videoApi.getById(videoId) : null,
+    queryFn: () => (videoId ? videoApi.getById(videoId) : null),
     enabled: !!videoId,
   });
 
   const { data: creator } = useQuery({
     queryKey: ["creator", video?.creatorId],
-    queryFn: () => video?.creatorId ? creatorApi.getById(video.creatorId) : null,
+    queryFn: () => (video?.creatorId ? creatorApi.getById(video.creatorId) : null),
     enabled: !!video?.creatorId,
   });
 
   const { data: relatedVideos = [] } = useQuery({
     queryKey: ["videos", "related", video?.creatorId],
-    queryFn: () => video?.creatorId ? videoApi.getByCreatorId(video.creatorId) : Promise.resolve([]),
+    queryFn: () =>
+      video?.creatorId
+        ? videoApi.getByCreatorId(video.creatorId)
+        : Promise.resolve([]),
     enabled: !!video?.creatorId,
   });
 
+  // Check like status
   useEffect(() => {
     if (!isAuthenticated || !videoId) return;
     engagementApi.isLiked(videoId).then((r) => setIsLiked(r.liked)).catch(() => {});
   }, [videoId, isAuthenticated]);
 
+  // Check subscription status
   useEffect(() => {
     if (!isAuthenticated || !video?.creatorId) return;
-    subscriptionApi.check(video.creatorId).then((r) => setIsSubscribed(r.subscribed || false)).catch(() => {});
+    subscriptionApi
+      .check(video.creatorId)
+      .then((r) => setIsSubscribed(r.subscribed || false))
+      .catch(() => {});
   }, [video?.creatorId, isAuthenticated]);
 
+  // Track view
   useEffect(() => {
     if (!videoId) return;
     engagementApi.trackView(videoId).then(() => refetchVideo()).catch(() => {});
@@ -73,7 +82,7 @@ export default function VideoPage() {
         setIsLiked(true);
         toast({ title: "Added to liked videos ❤️" });
       }
-    } catch (err) {
+    } catch {
       toast({ title: "Failed to update like", variant: "destructive" });
     } finally {
       setLikingInProgress(false);
@@ -107,39 +116,67 @@ export default function VideoPage() {
     }
   };
 
+  // ── Loading ────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header userRole={user?.role as any} username={user?.username} isAuthenticated={isAuthenticated} />
-        <div className="max-w-7xl mx-auto px-4 py-8 flex items-center justify-center">
+        <Header
+          userRole={user?.role as any}
+          username={user?.username}
+          isAuthenticated={isAuthenticated}
+        />
+        <div className="max-w-7xl mx-auto px-4 py-16 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
   }
 
+  // ── Not found ──────────────────────────────────────────────────────
   if (!video) {
     return (
       <div className="min-h-screen bg-background">
-        <Header userRole={user?.role as any} username={user?.username} isAuthenticated={isAuthenticated} />
+        <Header
+          userRole={user?.role as any}
+          username={user?.username}
+          isAuthenticated={isAuthenticated}
+        />
         <div className="max-w-7xl mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground mb-4">Video not found</p>
-          <Button onClick={() => navigate("/browse")} className="rounded-2xl">Back to Browse</Button>
+          <Button onClick={() => navigate("/browse")} className="rounded-2xl">
+            Back to Browse
+          </Button>
         </div>
       </div>
     );
   }
 
-  const isLocked = video.type === "paid" && user?.role !== "creator";
+  // ── Access control ─────────────────────────────────────────────────
+  // A paid video is ONLY unlocked when:
+  //   1. The logged-in user is the creator who OWNS this specific video, OR
+  //   2. The logged-in user has an active subscription to this creator.
+  // Any other creator (who doesn't own it) must subscribe just like a fan.
+  const isOwnVideo =
+    !!user?.creator?.id && user.creator.id === video.creatorId;
+
+  const isLocked =
+    video.type === "paid" &&
+    !isOwnVideo &&
+    !isSubscribed;
+
   const creatorName = creator?.user?.username || "Creator";
   const creatorInitials = creatorName.slice(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad page-enter">
-      <Header userRole={user?.role as any} username={user?.username} isAuthenticated={isAuthenticated} />
+      <Header
+        userRole={user?.role as any}
+        username={user?.username}
+        isAuthenticated={isAuthenticated}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-        {/* Back button */}
+        {/* Back */}
         <button
           onClick={() => navigate("/browse")}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors group"
@@ -149,7 +186,7 @@ export default function VideoPage() {
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main content */}
+          {/* ── Main content ── */}
           <div className="lg:col-span-2 space-y-4">
             {/* Player */}
             <div className="rounded-2xl overflow-hidden">
@@ -161,11 +198,13 @@ export default function VideoPage() {
               />
             </div>
 
-            {/* Video info */}
+            {/* Title & meta */}
             <div>
               <div className="flex items-start gap-2 mb-2">
                 {video.type === "paid" && (
-                  <span className="premium-badge px-2 py-0.5 rounded-lg text-[10px] flex-shrink-0 mt-1">Premium</span>
+                  <span className="premium-badge px-2 py-0.5 rounded-lg text-[10px] flex-shrink-0 mt-1">
+                    Premium
+                  </span>
                 )}
                 <h1 className="text-lg sm:text-xl font-bold font-display leading-snug">
                   {video.title}
@@ -179,26 +218,42 @@ export default function VideoPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" />
-                  {new Date(video.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {new Date(video.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
                 </span>
               </div>
 
-              {/* Action buttons */}
+              {/* Like / Share */}
               <div className="flex gap-2 mb-5">
                 <Button
                   variant={isLiked ? "default" : "outline"}
                   size="sm"
                   onClick={handleLike}
                   disabled={likingInProgress}
-                  className={`rounded-full font-medium ${isLiked ? "border-none text-white" : ""}`}
+                  className={`rounded-full font-medium ${
+                    isLiked ? "border-none text-white" : ""
+                  }`}
                   style={isLiked ? { background: "hsl(var(--primary))" } : {}}
                 >
-                  {likingInProgress
-                    ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                    : <ThumbsUp className={`h-4 w-4 mr-1.5 ${isLiked ? "fill-current" : ""}`} />}
+                  {likingInProgress ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <ThumbsUp
+                      className={`h-4 w-4 mr-1.5 ${isLiked ? "fill-current" : ""}`}
+                    />
+                  )}
                   {isLiked ? "Liked" : "Like"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleShare} className="rounded-full font-medium">
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShare}
+                  className="rounded-full font-medium"
+                >
                   <Share2 className="h-4 w-4 mr-1.5" />
                   Share
                 </Button>
@@ -207,52 +262,86 @@ export default function VideoPage() {
               {/* Description */}
               {video.description && (
                 <div className="bg-muted/40 rounded-2xl p-4 mb-4">
-                  <p className="text-sm text-muted-foreground leading-relaxed">{video.description}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {video.description}
+                  </p>
                 </div>
               )}
 
               {/* Creator card */}
               <div className="bg-card border border-card-border rounded-2xl p-4 flex items-center gap-3">
-                <Avatar className="h-12 w-12 rounded-2xl ring-2" style={{ '--tw-ring-color': 'hsl(var(--border))' } as any}>
+                <Avatar className="h-12 w-12 rounded-2xl">
                   <AvatarImage src={creator?.imageUrl} />
-                  <AvatarFallback className="rounded-2xl text-sm font-bold text-white" style={{ background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(195,100%,50%))" }}>
+                  <AvatarFallback
+                    className="rounded-2xl text-sm font-bold text-white"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, hsl(350,100%,65%), hsl(195,100%,50%))",
+                    }}
+                  >
                     {creatorInitials}
                   </AvatarFallback>
                 </Avatar>
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="font-semibold text-sm truncate">{creatorName}</p>
-                    <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "hsl(var(--primary))" }} />
+                    <CheckCircle
+                      className="h-3.5 w-3.5 flex-shrink-0"
+                      style={{ color: "hsl(var(--primary))" }}
+                    />
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Users className="h-3 w-3" />
                     {(creator?.totalSubscribers || 0).toLocaleString()} subscribers
                   </p>
                 </div>
-                <Button
-                  onClick={handleSubscribe}
-                  disabled={subscribingInProgress || isSubscribed}
-                  size="sm"
-                  className={`rounded-full font-bold flex-shrink-0 border-none ${isSubscribed ? "bg-muted text-muted-foreground" : "text-white"}`}
-                  style={!isSubscribed ? { background: "hsl(var(--primary))" } : {}}
-                >
-                  {subscribingInProgress ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : isSubscribed ? (
-                    <><Check className="h-3.5 w-3.5 mr-1" /> Subscribed</>
-                  ) : (
-                    `$${creator?.subscriptionPrice || "9.99"}/mo`
-                  )}
-                </Button>
+
+                {/* Subscribe button — hidden for own videos */}
+                {!isOwnVideo ? (
+                  <Button
+                    onClick={handleSubscribe}
+                    disabled={subscribingInProgress || isSubscribed}
+                    size="sm"
+                    className={`rounded-full font-bold flex-shrink-0 border-none ${
+                      isSubscribed ? "bg-muted text-muted-foreground" : "text-white"
+                    }`}
+                    style={
+                      !isSubscribed ? { background: "hsl(var(--primary))" } : {}
+                    }
+                  >
+                    {subscribingInProgress ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : isSubscribed ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        Subscribed
+                      </>
+                    ) : (
+                      `$${creator?.subscriptionPrice || "9.99"}/mo`
+                    )}
+                  </Button>
+                ) : (
+                  <span
+                    className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0"
+                    style={{
+                      background: "hsl(var(--primary) / 0.10)",
+                      color: "hsl(var(--primary))",
+                    }}
+                  >
+                    Your video
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Sidebar */}
+          {/* ── Sidebar — related videos only ── */}
           <div className="lg:col-span-1">
             <h2 className="font-bold font-display text-sm mb-4 text-muted-foreground uppercase tracking-wider">
               More from {creatorName}
             </h2>
+
             <div className="space-y-4">
               {relatedVideos
                 .filter((v: any) => v.id !== video.id)
@@ -264,6 +353,7 @@ export default function VideoPage() {
                     onClick={() => navigate(`/video/${v.id}`)}
                   />
                 ))}
+
               {relatedVideos.filter((v: any) => v.id !== video.id).length === 0 && (
                 <div className="text-center py-8 rounded-2xl border border-dashed border-border bg-muted/20">
                   <p className="text-sm text-muted-foreground">No other videos</p>
