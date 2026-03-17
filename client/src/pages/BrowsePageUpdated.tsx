@@ -4,7 +4,6 @@ import { videoApi, categoryApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { VideoCard } from "@/components/VideoCard";
-import { AffiliateBanner, AffiliateBannerStrip } from "@/components/AffiliateBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, SlidersHorizontal, X, Compass } from "lucide-react";
@@ -69,11 +68,6 @@ export default function BrowsePageUpdated() {
     ...(isAuthenticated ? [{ value: "paid" as const, label: "Premium" }] : []),
   ];
 
-  // Split videos into chunks for inline ads
-  const chunk1 = filteredVideos.slice(0, 4);
-  const chunk2 = filteredVideos.slice(4, 8);
-  const chunk3 = filteredVideos.slice(8);
-
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
       <Header
@@ -86,10 +80,7 @@ export default function BrowsePageUpdated() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 page-enter">
         {/* Page header */}
         <div className="flex items-center gap-3 mb-6">
-          <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center"
-            style={{ background: "hsl(var(--primary) / 0.10)" }}
-          >
+          <div className="w-10 h-10 rounded-2xl bg-[hsl(var(--primary)/0.10)] flex items-center justify-center" style={{ background: "hsl(var(--primary) / 0.10)" }}>
             <Compass className="h-5 w-5" style={{ color: "hsl(var(--primary))" }} />
           </div>
           <div>
@@ -100,9 +91,6 @@ export default function BrowsePageUpdated() {
             </p>
           </div>
         </div>
-
-        {/* ── TOP BANNER STRIP ── */}
-        <AffiliateBannerStrip className="mb-5" />
 
         {/* Search + filter row */}
         <div className="flex gap-2 mb-4">
@@ -124,7 +112,8 @@ export default function BrowsePageUpdated() {
             )}
           </div>
           <Button
-            variant="outline" size="icon"
+            variant="outline"
+            size="icon"
             onClick={() => setFiltersOpen(!filtersOpen)}
             className={`h-10 w-10 rounded-2xl flex-shrink-0 ${filtersOpen || hasFilters ? "border-primary/50 text-primary" : ""}`}
           >
@@ -135,6 +124,7 @@ export default function BrowsePageUpdated() {
         {/* Filter panel */}
         {filtersOpen && (
           <div className="bg-card border border-card-border rounded-3xl p-4 mb-5 space-y-4 shadow-lg">
+            {/* Content type */}
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Content Type</p>
               <div className="flex gap-2 flex-wrap">
@@ -143,27 +133,50 @@ export default function BrowsePageUpdated() {
                     key={value}
                     onClick={() => setContentType(value)}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                      contentType === value ? "text-white shadow-sm" : "bg-muted text-muted-foreground hover:text-foreground"
+                      contentType === value
+                        ? "text-white shadow-sm"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
                     }`}
-                    style={contentType === value ? { background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))" } : {}}
+                    style={contentType === value ? {
+                      background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))"
+                    } : {}}
                   >
                     {label}
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Categories */}
             {categories.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Category</p>
                 <div className="flex gap-2 flex-wrap">
-                  {[{ id: "all", name: "All" }, ...categories].map((cat) => (
+                  <button
+                    onClick={() => setSelectedCategory("all")}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      selectedCategory === "all"
+                        ? "text-white shadow-sm"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                    style={selectedCategory === "all" ? {
+                      background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))"
+                    } : {}}
+                  >
+                    All
+                  </button>
+                  {categories.map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
                       className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                        selectedCategory === cat.id ? "text-white shadow-sm" : "bg-muted text-muted-foreground hover:text-foreground"
+                        selectedCategory === cat.id
+                          ? "text-white shadow-sm"
+                          : "bg-muted text-muted-foreground hover:text-foreground"
                       }`}
-                      style={selectedCategory === cat.id ? { background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))" } : {}}
+                      style={selectedCategory === cat.id ? {
+                        background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))"
+                      } : {}}
                     >
                       {cat.name}
                     </button>
@@ -171,6 +184,7 @@ export default function BrowsePageUpdated() {
                 </div>
               </div>
             )}
+
             {hasFilters && (
               <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
                 <X className="h-3 w-3" /> Clear all filters
@@ -179,7 +193,7 @@ export default function BrowsePageUpdated() {
           </div>
         )}
 
-        {/* Active filter chips */}
+        {/* Active filter chips (when panel closed) */}
         {!filtersOpen && hasFilters && (
           <div className="flex gap-2 flex-wrap mb-4">
             {contentType !== "all" && (
@@ -201,71 +215,37 @@ export default function BrowsePageUpdated() {
           </div>
         )}
 
-        {/* Video grid — split into chunks with inline banners */}
+        {/* Video grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {[...Array(8)].map((_, i) => <VideoSkeleton key={i} />)}
           </div>
         ) : filteredVideos.length > 0 ? (
-          <div className="space-y-6">
-            {/* Chunk 1 — first 4 videos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-              {chunk1.map((video: any) => (
-                <VideoCard key={video.id} video={video} onClick={() => navigate(`/video/${video.id}`)} />
-              ))}
-            </div>
-
-            {/* ── INLINE BANNER after first row ── */}
-            {filteredVideos.length > 2 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <AffiliateBanner index={0} size="md" />
-                <AffiliateBanner index={1} size="md" />
-              </div>
-            )}
-
-            {/* Chunk 2 */}
-            {chunk2.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-                {chunk2.map((video: any) => (
-                  <VideoCard key={video.id} video={video} onClick={() => navigate(`/video/${video.id}`)} />
-                ))}
-              </div>
-            )}
-
-            {/* ── WIDE SINGLE BANNER after second chunk ── */}
-            {filteredVideos.length > 6 && (
-              <AffiliateBanner index={2} size="lg" />
-            )}
-
-            {/* Chunk 3 */}
-            {chunk3.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-                {chunk3.map((video: any) => (
-                  <VideoCard key={video.id} video={video} onClick={() => navigate(`/video/${video.id}`)} />
-                ))}
-              </div>
-            )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+            {filteredVideos.map((video: any) => (
+              <VideoCard
+                key={video.id}
+                video={video}
+                onClick={() => navigate(`/video/${video.id}`)}
+              />
+            ))}
           </div>
         ) : (
           <div className="text-center py-16 rounded-3xl border border-dashed border-border bg-muted/20">
-            <Compass className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+            <div className="w-16 h-16 rounded-2xl bg-muted mx-auto flex items-center justify-center mb-4">
+              <Compass className="h-8 w-8 text-muted-foreground/30" />
+            </div>
             <p className="font-medium text-muted-foreground mb-1">
               {hasFilters ? "No videos match your filters" : "No videos yet"}
             </p>
+            <p className="text-sm text-muted-foreground/60 mb-4">
+              {hasFilters ? "Try adjusting your search or filters" : "Check back soon!"}
+            </p>
             {hasFilters && (
-              <Button variant="outline" onClick={clearFilters} className="rounded-2xl mt-4">
+              <Button variant="outline" onClick={clearFilters} className="rounded-2xl">
                 Clear filters
               </Button>
             )}
-          </div>
-        )}
-
-        {/* ── BOTTOM BANNER TRIO ── */}
-        {filteredVideos.length > 0 && (
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <AffiliateBanner index={3} size="md" />
-            <AffiliateBanner index={4} size="md" />
-            <AffiliateBanner index={5} size="md" />
           </div>
         )}
       </div>

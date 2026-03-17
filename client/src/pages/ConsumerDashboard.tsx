@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { VideoCard } from "@/components/VideoCard";
 import { CreatorCard } from "@/components/CreatorCard";
-import { AffiliateBanner, AffiliateBannerStrip } from "@/components/AffiliateBanner";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/StatCard";
 import { useLocation } from "wouter";
@@ -34,7 +33,7 @@ export default function ConsumerDashboard() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center animate-pulse"
+          <div className="w-12 h-12 rounded-2xl bg-[hsl(var(--primary)/0.15)] mx-auto flex items-center justify-center animate-pulse"
             style={{ background: "hsl(var(--primary) / 0.15)" }}>
             <LayoutDashboard className="h-6 w-6" style={{ color: "hsl(var(--primary))" }} />
           </div>
@@ -58,26 +57,21 @@ export default function ConsumerDashboard() {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 page-enter">
-        {/* Header */}
+        {/* Page header */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold font-display">My Library</h1>
-          <p className="text-sm text-muted-foreground mt-1">Your subscriptions and available content</p>
+          <h1 className="text-2xl sm:text-3xl font-bold font-display">
+            My Library
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Your subscriptions and available content
+          </p>
         </div>
-
-        {/* ── TOP BANNER STRIP ── */}
-        <AffiliateBannerStrip className="mb-6" />
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-7">
           <StatCard title="Following" value={creators.length} icon={Users} color="primary" />
           <StatCard title="Videos" value={freeVideos.length} icon={Video} color="accent" />
           <StatCard title="Watchlist" value="0" icon={Heart} color="gold" />
-        </div>
-
-        {/* ── BANNER after stats ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-7">
-          <AffiliateBanner index={0} size="sm" />
-          <AffiliateBanner index={1} size="sm" />
         </div>
 
         {/* Creators */}
@@ -93,7 +87,9 @@ export default function ConsumerDashboard() {
 
           {creatorsLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-52 rounded-3xl skeleton-wave" />)}
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-52 rounded-3xl skeleton-wave" />
+              ))}
             </div>
           ) : creators.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -103,9 +99,13 @@ export default function ConsumerDashboard() {
             </div>
           ) : (
             <div className="rounded-3xl border border-dashed border-border bg-muted/20 py-12 px-4 text-center">
-              <Users className="h-7 w-7 text-muted-foreground/30 mx-auto mb-3" />
+              <div className="w-14 h-14 rounded-2xl bg-muted mx-auto flex items-center justify-center mb-4">
+                <Users className="h-7 w-7 text-muted-foreground/30" />
+              </div>
               <p className="font-medium text-muted-foreground mb-1">No subscriptions yet</p>
-              <p className="text-sm text-muted-foreground/60 mb-5">Discover amazing creators</p>
+              <p className="text-sm text-muted-foreground/60 mb-5">
+                Discover amazing creators and subscribe to their content
+              </p>
               <Button
                 onClick={() => navigate("/browse")}
                 className="rounded-2xl font-bold text-white border-none"
@@ -117,19 +117,13 @@ export default function ConsumerDashboard() {
           )}
         </section>
 
-        {/* ── BANNER between creators and videos ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-          <AffiliateBanner index={2} size="md" />
-          <AffiliateBanner index={3} size="md" />
-          <AffiliateBanner index={4} size="md" />
-        </div>
-
         {/* Available videos */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold font-display">Available Videos</h2>
             <Button
-              variant="ghost" size="sm"
+              variant="ghost"
+              size="sm"
               onClick={() => navigate("/browse")}
               className="text-xs rounded-full"
               style={{ color: "hsl(var(--primary))" }}
@@ -143,28 +137,15 @@ export default function ConsumerDashboard() {
               {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
             </div>
           ) : freeVideos.length > 0 ? (
-            <>
-              {/* First 3 */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 mb-5">
-                {freeVideos.slice(0, 3).map((video: any) => (
-                  <VideoCard key={video.id} video={video} onClick={() => navigate(`/video/${video.id}`)} />
-                ))}
-              </div>
-
-              {/* Inline banner */}
-              {freeVideos.length > 3 && (
-                <AffiliateBanner index={5} size="md" className="mb-5" />
-              )}
-
-              {/* Rest */}
-              {freeVideos.length > 3 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {freeVideos.slice(3).map((video: any) => (
-                    <VideoCard key={video.id} video={video} onClick={() => navigate(`/video/${video.id}`)} />
-                  ))}
-                </div>
-              )}
-            </>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {freeVideos.map((video: any) => (
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  onClick={() => navigate(`/video/${video.id}`)}
+                />
+              ))}
+            </div>
           ) : (
             <div className="rounded-3xl border border-dashed border-border bg-muted/20 py-12 text-center">
               <Video className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />

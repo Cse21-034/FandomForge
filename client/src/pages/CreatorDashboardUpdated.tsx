@@ -4,7 +4,6 @@ import { videoApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { UploadVideoDialog } from "@/components/UploadVideoDialog";
-import { AffiliateBanner, AffiliateBannerStrip } from "@/components/AffiliateBanner";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/StatCard";
 import { useLocation } from "wouter";
@@ -14,7 +13,7 @@ import {
 } from "recharts";
 import {
   Upload, Video, DollarSign, Users, Eye, Lock, Unlock,
-  TrendingUp, Pencil, Trash2, Plus, LayoutDashboard,
+  TrendingUp, MoreHorizontal, Pencil, Trash2, Plus, LayoutDashboard,
 } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -64,8 +63,7 @@ export default function CreatorDashboardUpdated() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center animate-pulse"
-            style={{ background: "hsl(var(--primary) / 0.15)" }}>
+          <div className="w-12 h-12 rounded-2xl bg-[hsl(var(--primary)/0.15)] mx-auto flex items-center justify-center animate-pulse" style={{ background: "hsl(var(--primary) / 0.15)" }}>
             <LayoutDashboard className="h-6 w-6" style={{ color: "hsl(var(--primary))" }} />
           </div>
           <p className="text-sm text-muted-foreground">Loading your studio…</p>
@@ -112,7 +110,9 @@ export default function CreatorDashboardUpdated() {
     contentStyle: {
       backgroundColor: "hsl(var(--popover))",
       border: "1px solid hsl(var(--border))",
-      borderRadius: 12, fontSize: 12,
+      borderRadius: 12,
+      fontSize: 12,
+      boxShadow: "var(--shadow-lg)",
     },
     labelStyle: { color: "hsl(var(--foreground))", fontWeight: 600 },
     itemStyle: { color: "hsl(var(--primary))" },
@@ -124,45 +124,54 @@ export default function CreatorDashboardUpdated() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 page-enter">
         {/* Header */}
-        <div className="flex items-start justify-between mb-5 gap-4">
+        <div className="flex items-start justify-between mb-6 sm:mb-8 gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-2 h-2 rounded-full live-dot" style={{ background: "hsl(var(--primary))" }} />
+              <div className="w-2 h-2 rounded-full live-dot" style={{ background: "hsl(var(--primary))" }} />
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Creator Studio</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-display">Hey, {user?.username} 👋</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Here's what's happening with your content.</p>
+            <h1 className="text-2xl sm:text-3xl font-bold font-display">
+              Hey, {user?.username} 👋
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">Here's what's happening with your content.</p>
           </div>
           <Button
             onClick={() => setUploadOpen(true)}
             className="rounded-2xl font-bold text-white shadow-lg border-none flex-shrink-0 h-10 sm:h-11"
             style={{ background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))" }}
           >
-            <Plus className="w-4 h-4 mr-1.5" /> Upload
+            <Plus className="w-4 h-4 mr-1.5" />
+            <span className="hidden sm:inline">Upload</span>
+            <span className="sm:hidden">Upload</span>
           </Button>
         </div>
 
-        {/* ── TOP BANNER STRIP ── */}
-        <AffiliateBannerStrip className="mb-6" />
-
         {/* Main stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <StatCard title="Videos" value={totalVideos} icon={Video} color="primary" />
           <StatCard title="Total Views" value={totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews} icon={Eye} color="accent" />
           <StatCard title="Subscribers" value={totalSubscribers} icon={Users} color="green" />
-          <StatCard title="Earnings" value={`$${estimatedEarnings.toFixed(0)}`} icon={DollarSign} color="gold" description="Estimated" />
+          <StatCard
+            title="Earnings"
+            value={`$${estimatedEarnings.toFixed(0)}`}
+            icon={DollarSign}
+            color="gold"
+            description="Estimated"
+          />
         </div>
 
         {/* Secondary stats */}
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-3 gap-3 mb-6">
           {[
             { label: "Free", value: freeVideos, icon: Unlock, color: "#10b981", bg: "hsl(150 60% 42% / 0.08)" },
             { label: "Premium", value: paidVideos, icon: Lock, color: "hsl(350,100%,65%)", bg: "hsl(350 100% 65% / 0.08)" },
             { label: "Avg Views", value: totalVideos > 0 ? Math.round(totalViews / totalVideos) : 0, icon: TrendingUp, color: "hsl(195 100% 42%)", bg: "hsl(195 100% 50% / 0.08)" },
           ].map(({ label, value, icon: Icon, color, bg }) => (
             <div key={label} className="bg-card border border-card-border rounded-2xl p-4">
-              <div className="w-7 h-7 rounded-xl flex items-center justify-center mb-1" style={{ background: bg }}>
-                <Icon className="w-3.5 h-3.5" style={{ color }} />
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{ background: bg }}>
+                  <Icon className="w-3.5 h-3.5" style={{ color }} />
+                </div>
               </div>
               <p className="text-xl font-bold font-display">{value}</p>
               <p className="text-xs text-muted-foreground">{label}</p>
@@ -170,14 +179,9 @@ export default function CreatorDashboardUpdated() {
           ))}
         </div>
 
-        {/* ── BANNER between stats and charts ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-          <AffiliateBanner index={0} size="sm" />
-          <AffiliateBanner index={1} size="sm" />
-        </div>
-
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          {/* Views chart */}
           <div className="bg-card border border-card-border rounded-3xl p-5 lg:col-span-2">
             <div className="flex items-center gap-2 mb-5">
               <Eye className="w-4 h-4" style={{ color: "hsl(var(--primary))" }} />
@@ -198,6 +202,7 @@ export default function CreatorDashboardUpdated() {
             )}
           </div>
 
+          {/* Content mix */}
           <div className="bg-card border border-card-border rounded-3xl p-5">
             <div className="flex items-center gap-2 mb-5">
               <Video className="w-4 h-4" style={{ color: "hsl(var(--primary))" }} />
@@ -229,7 +234,7 @@ export default function CreatorDashboardUpdated() {
 
         {/* Subscriber growth */}
         {subsChartData.length > 0 && (
-          <div className="bg-card border border-card-border rounded-3xl p-5 mb-5">
+          <div className="bg-card border border-card-border rounded-3xl p-5 mb-6">
             <div className="flex items-center gap-2 mb-5">
               <Users className="w-4 h-4" style={{ color: "hsl(var(--primary))" }} />
               <h3 className="font-display font-semibold text-sm">Subscriber Growth</h3>
@@ -246,19 +251,13 @@ export default function CreatorDashboardUpdated() {
           </div>
         )}
 
-        {/* ── BANNER between charts and video list ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-          <AffiliateBanner index={2} size="md" />
-          <AffiliateBanner index={3} size="md" />
-          <AffiliateBanner index={4} size="md" />
-        </div>
-
         {/* Videos list */}
         <div className="bg-card border border-card-border rounded-3xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <h3 className="font-display font-semibold">Your Videos</h3>
             <Button
-              size="sm" onClick={() => setUploadOpen(true)}
+              size="sm"
+              onClick={() => setUploadOpen(true)}
               className="rounded-xl text-xs font-bold text-white border-none h-8"
               style={{ background: "hsl(var(--primary))" }}
             >
@@ -268,62 +267,72 @@ export default function CreatorDashboardUpdated() {
 
           {videosLoading ? (
             <div className="p-4 space-y-3">
-              {[...Array(3)].map((_, i) => <div key={i} className="h-16 rounded-2xl skeleton-wave" />)}
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-16 rounded-2xl skeleton-wave" />
+              ))}
             </div>
           ) : videos.length > 0 ? (
             <div className="divide-y divide-border">
-              {videos.map((video: any, idx: number) => (
-                <>
-                  <div key={video.id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5 hover:bg-muted/30 transition-colors group">
-                    <div className="w-16 sm:w-20 h-10 sm:h-12 rounded-xl overflow-hidden bg-muted flex-shrink-0">
-                      {video.thumbnailUrl ? (
-                        <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Video className="h-4 w-4 text-muted-foreground/30" />
-                        </div>
-                      )}
+              {videos.map((video: any) => (
+                <div key={video.id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5 hover:bg-muted/30 transition-colors group">
+                  {/* Thumbnail */}
+                  <div className="w-16 sm:w-20 h-10 sm:h-12 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                    {video.thumbnailUrl ? (
+                      <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Video className="h-4 w-4 text-muted-foreground/30" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm truncate max-w-[180px] sm:max-w-none">{video.title}</p>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex-shrink-0 ${
+                          video.type === "paid"
+                            ? "bg-[hsl(350,100%,65%)/0.12] text-[hsl(350,100%,58%)]"
+                            : "bg-emerald-500/10 text-emerald-600"
+                        }`}
+                        style={{
+                          background: video.type === "paid" ? "hsl(350 100% 65% / 0.10)" : "rgb(16 185 129 / 0.10)",
+                          color: video.type === "paid" ? "hsl(350 100% 58%)" : "rgb(5 150 105)",
+                        }}
+                      >
+                        {video.type}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm truncate max-w-[180px] sm:max-w-none">{video.title}</p>
-                        <span
-                          className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex-shrink-0"
-                          style={{
-                            background: video.type === "paid" ? "hsl(350 100% 65% / 0.10)" : "rgb(16 185 129 / 0.10)",
-                            color: video.type === "paid" ? "hsl(350 100% 58%)" : "rgb(5 150 105)",
-                          }}
-                        >
-                          {video.type}
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> {(video.views || 0).toLocaleString()}
+                      </span>
+                      {video.type === "paid" && (
+                        <span className="flex items-center gap-1">
+                          <DollarSign className="w-3 h-3" /> {video.price}
                         </span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {(video.views || 0).toLocaleString()}</span>
-                        {video.type === "paid" && <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /> {video.price}</span>}
-                        <span className="hidden sm:inline">{new Date(video.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button className="p-1.5 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      )}
+                      <span className="hidden sm:inline">{new Date(video.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  {/* ── INLINE BANNER after every 5th video ── */}
-                  {(idx + 1) % 5 === 0 && idx !== videos.length - 1 && (
-                    <div key={`banner-${idx}`} className="px-4 sm:px-5 py-3">
-                      <AffiliateBanner index={idx % 6} size="sm" />
-                    </div>
-                  )}
-                </>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button className="p-1.5 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-12 px-4">
-              <Video className="h-7 w-7 text-muted-foreground/30 mx-auto mb-3" />
+              <div className="w-14 h-14 rounded-2xl bg-muted mx-auto flex items-center justify-center mb-4">
+                <Video className="h-7 w-7 text-muted-foreground/30" />
+              </div>
               <p className="font-medium text-muted-foreground mb-1">No videos yet</p>
               <p className="text-sm text-muted-foreground/60 mb-5">Upload your first video to get started</p>
               <Button
@@ -336,9 +345,6 @@ export default function CreatorDashboardUpdated() {
             </div>
           )}
         </div>
-
-        {/* ── FOOTER BANNER ── */}
-        <AffiliateBanner index={5} size="lg" className="mt-6" />
       </div>
 
       <UploadVideoDialog
