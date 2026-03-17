@@ -321,7 +321,20 @@ export default function CreatorDashboardUpdated() {
                     <button className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button className="p-1.5 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                    <button
+                      className="p-1.5 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      onClick={async () => {
+                        if (window.confirm("Are you sure you want to delete this video?")) {
+                          try {
+                            await videoApi.delete(video.id);
+                            refetchVideos();
+                          } catch (err) {
+                            alert("Failed to delete video.");
+                          }
+                        }
+                      }}
+                      title="Delete video"
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
