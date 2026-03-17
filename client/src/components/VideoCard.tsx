@@ -1,4 +1,4 @@
-import { Lock, Play, Eye } from "lucide-react";
+import { Lock, Play, Eye, Heart } from "lucide-react";
 
 interface VideoCardProps {
   id?: string;
@@ -9,6 +9,7 @@ interface VideoCardProps {
   creatorName?: string;
   creatorAvatar?: string;
   views?: number;
+  likes?: number;
   onClick?: () => void;
   video?: {
     id: string;
@@ -18,6 +19,7 @@ interface VideoCardProps {
     type: "free" | "paid";
     price?: string | number;
     views?: number;
+    likes?: number;
     createdAt?: string;
   };
 }
@@ -35,6 +37,7 @@ export function VideoCard(props: VideoCardProps) {
   const thumbnail   = v?.thumbnailUrl ?? props.thumbnail    ?? "";
   const isPaid      = v ? v.type === "paid" : (props.isPaid ?? false);
   const views       = v?.views        ?? props.views        ?? 0;
+  const likesCount  = v?.likes        ?? props.likes        ?? 0;
   const creatorName = props.creatorName  ?? "Creator";
   const creatorAvatar = props.creatorAvatar;
   const duration    = props.duration  ?? "";
@@ -97,7 +100,7 @@ export function VideoCard(props: VideoCardProps) {
 
       {/* Info */}
       <div className="flex gap-3 px-0.5">
-        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-[hsl(var(--primary)/0.7)] to-[hsl(var(--accent)/0.7)] flex items-center justify-center text-white text-xs font-bold shadow-sm mt-0.5 overflow-hidden">
+        <div className="flex-shrink-0 w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[hsl(var(--primary)/0.7)] to-[hsl(var(--accent)/0.7)] flex items-center justify-center text-white text-xs font-bold shadow-sm mt-0.5">
           {creatorAvatar ? (
             <img
               src={creatorAvatar}
@@ -114,9 +117,17 @@ export function VideoCard(props: VideoCardProps) {
             {title}
           </h3>
           <p className="text-xs text-muted-foreground mt-1">{creatorName}</p>
-          <div className="flex items-center gap-1 mt-0.5">
-            <Eye className="h-3 w-3 text-muted-foreground/70" />
-            <p className="text-xs text-muted-foreground/70">{formatViews(views)} views</p>
+          <div className="flex items-center gap-3 mt-0.5">
+            <div className="flex items-center gap-1">
+              <Eye className="h-3 w-3 text-muted-foreground/70" />
+              <p className="text-xs text-muted-foreground/70">{formatViews(views)}</p>
+            </div>
+            {likesCount > 0 && (
+              <div className="flex items-center gap-1">
+                <Heart className="h-3 w-3 text-muted-foreground/70" />
+                <p className="text-xs text-muted-foreground/70">{formatViews(likesCount)}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -36,7 +36,6 @@ export default function BrowsePageUpdated() {
     queryKey: ["videos-with-creators"],
     queryFn: async () => {
       const videos: any[] = await videoApi.getAll();
-      // Fetch all unique creatorIds
       const creatorIds: string[] = Array.from(new Set(videos.map((v: any) => v.creatorId)));
       const creators = await Promise.all(
         creatorIds.map((id) => creatorApi.getById(id).catch(() => null))
@@ -44,11 +43,10 @@ export default function BrowsePageUpdated() {
       const creatorMap = Object.fromEntries(
         creators.filter(Boolean).map((c: any) => [c.id, c])
       );
-      // Attach creator info to each video
       return videos.map((v: any) => {
         const creator = creatorMap[v.creatorId] || null;
-        // Prefer profileImage, fallback to imageUrl
-        const avatar = creator?.profileImage || creator?.imageUrl || undefined;
+        // FIXED: server returns creator.user.profileImage (not creator.profileImage)
+        const avatar = creator?.user?.profileImage || undefined;
         return {
           ...v,
           _creator: creator,

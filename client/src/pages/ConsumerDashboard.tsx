@@ -37,7 +37,7 @@ export default function ConsumerDashboard() {
       );
       return videos.map((v: any) => {
         const creator = creatorMap[v.creatorId] || null;
-        const avatar = creator?.profileImage || creator?.imageUrl || undefined;
+        const avatar = creator?.user?.profileImage || undefined;
         return {
           ...v,
           _creator: creator,

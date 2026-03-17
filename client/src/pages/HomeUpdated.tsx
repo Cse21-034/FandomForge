@@ -40,10 +40,16 @@ export default function HomePage() {
       const creatorMap = Object.fromEntries(
         creators.filter(Boolean).map((c: any) => [c.id, c])
       );
-      return filtered.map((v: any) => ({
-        ...v,
-        _creator: creatorMap[v.creatorId] || null,
-      }));
+      return filtered.map((v: any) => {
+        const creator = creatorMap[v.creatorId] || null;
+        // FIXED: server returns creator.user.profileImage (not creator.profileImage)
+        const avatar = creator?.user?.profileImage || undefined;
+        return {
+          ...v,
+          _creator: creator,
+          _creatorAvatar: avatar,
+        };
+      });
     },
   });
 
@@ -70,16 +76,6 @@ export default function HomePage() {
       bg: "hsl(195 100% 42% / 0.08)",
     },
   ];
-
-  // Attach creator avatar to each video
-  const videosWithAvatars = videosWithCreators.map((v: any) => {
-    const creator = v._creator || {};
-    const avatar = creator.profileImage || creator.imageUrl || undefined;
-    return {
-      ...v,
-      _creatorAvatar: avatar,
-    };
-  });
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
@@ -190,9 +186,9 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
               {[...Array(6)].map((_, i) => <VideoSkeleton key={i} />)}
             </div>
-          ) : videosWithAvatars.length > 0 ? (
+          ) : videosWithCreators.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {videosWithAvatars.map((video: any) => (
+              {videosWithCreators.map((video: any) => (
                 <VideoCard
                   key={video.id}
                   video={video}
