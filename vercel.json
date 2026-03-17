@@ -1,0 +1,30 @@
+{
+  "buildCommand": "npm run build:with-db",
+  "outputDirectory": "dist/public",
+  "installCommand": "npm install",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://fandomforge.onrender.com/api/:path*"
+    },
+    {
+      "source": "/((?!assets/|_next/|favicon\\.ico).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "VITE_API_URL": "https://fandomforge.onrender.com/api"
+  }
+}

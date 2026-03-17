@@ -1,0 +1,164 @@
+// Frontend API client for FandomForge
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+interface ApiRequestOptions {
+  method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+  body?: any;
+  headers?: Record<string, string>;
+}
+
+function getAuthToken(): string | null {
+  return localStorage.getItem("authToken");
+}
+
+function setAuthToken(token: string): void {
+  localStorage.setItem("authToken", token);
+}
+
+function clearAuthToken(): void {
+  localStorage.removeItem("authToken");
+}
+
+async function apiRequest(endpoint: string, options: ApiRequestOptions = {}): Promise<any> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(url, {
+    method: options.method || "GET",
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (response.status === 401) {
+    clearAuthToken();
+    window.location.href = "/";
+  }
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    // Use the server's error message so we see the real problem
+    throw new Error(data.error || `API Error: ${response.status} ${response.statusText}`);
+  }
+
+  return data;
+}
+
+// Auth endpoints
+export const authApi = {
+  register: (username: string, email: string, password: string, role: string) =>
+    apiRequest("/auth/register", { method: "POST", body: { username, email, password, role } }),
+
+  login: (email: string, password: string) =>
+    apiRequest("/auth/login", { method: "POST", body: { email, password } }),
+
+  getMe: () => apiRequest("/auth/me"),
+
+  setToken: setAuthToken,
+  getToken: getAuthToken,
+  clearToken: clearAuthToken,
+};
+
+// Creator endpoints
+export const creatorApi = {
+  getAll: () => apiRequest("/creators"),
+  getById: (id: string) => apiRequest(`/creators/${id}`),
+  update: (id: string, data: any) => apiRequest(`/creators/${id}`, { method: "PUT", body: data }),
+};
+
+// Video endpoints
+export const videoApi = {
+  getAll: () => apiRequest("/videos"),
+  getById: (id: string) => apiRequest(`/videos/${id}`),
+  getByCreatorId: (creatorId: string) => apiRequest(`/videos/creator/${creatorId}`),
+
+  create: (data: {
+    title: string;
+    description?: string;
+    videoUrl: string;
+    thumbnailUrl?: string;
+    type: "free" | "paid";
+    price?: number;
+    categoryId?: string | null;
+  }) => {
+    // Build a clean body — never send null/undefined categoryId
+    const body: any = {
+      title: data.title,
+      videoUrl: data.videoUrl,
+      type: data.type,
+      // Always send price as a number; server will stringify for Drizzle
+      price: data.price ?? 0,
+    };
+    if (data.description) body.description = data.description;
+    if (data.thumbnailUrl) body.thumbnailUrl = data.thumbnailUrl;
+    if (data.categoryId && data.categoryId !== "") body.categoryId = data.categoryId;
+
+    return apiRequest("/videos", { method: "POST", body });
+  },
+
+  update: (id: string, data: any) =>
+    apiRequest(`/videos/${id}`, { method: "PUT", body: data }),
+
+  delete: (id: string) =>
+    apiRequest(`/videos/${id}`, { method: "DELETE" }),
+
+  // Direct Cloudinary upload — no longer used from the dialog
+  // (kept for backwards compat)
+  uploadFile: async (file: File) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "fandomforge_preset");
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+      { method: "POST", body: formData }
+    );
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || "Cloudinary upload failed");
+    }
+    const result = await response.json();
+    return { url: result.secure_url, publicId: result.public_id };
+  },
+};
+
+// Subscription endpoints
+export const subscriptionApi = {
+  getAll: () => apiRequest("/subscriptions"),
+  check: (creatorId: string) => apiRequest(`/subscriptions/check/${creatorId}`),
+  subscribe: (creatorId: string, priceId: string) =>
+    apiRequest("/payments/subscribe", { method: "POST", body: { creatorId, priceId } }),
+};
+
+// Video Engagement (Likes/Shares)
+export const engagementApi = {
+  like: (videoId: string) =>
+    apiRequest(`/videos/${videoId}/like`, { method: "POST" }),
+  unlike: (videoId: string) =>
+    apiRequest(`/videos/${videoId}/like`, { method: "DELETE" }),
+  isLiked: (videoId: string) =>
+    apiRequest(`/videos/${videoId}/like`),
+  share: (videoId: string) =>
+    apiRequest(`/videos/${videoId}/share`, { method: "POST" }),
+  trackView: (videoId: string) =>
+    apiRequest(`/videos/${videoId}/view`, { method: "POST" }),
+};
+
+// Payment endpoints
+export const paymentApi = {
+  createPPV: (videoId: string, creatorId: string, amount: string) =>
+    apiRequest("/payments/ppv", { method: "POST", body: { videoId, creatorId, amount } }),
+};
+
+// Category endpoints
+export const categoryApi = {
+  getAll: () => apiRequest("/categories"),
+  create: (name: string) => apiRequest("/categories", { method: "POST", body: { name } }),
+};
