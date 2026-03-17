@@ -1,4 +1,7 @@
-// Frontend API client for FandomForge
+// =====================================================================
+// This is the COMPLETE updated client/src/lib/api.ts
+// Adds profileApi with updateProfile, uploadProfileImage, updateCreatorSettings
+// =====================================================================
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -44,14 +47,13 @@ async function apiRequest(endpoint: string, options: ApiRequestOptions = {}): Pr
   const data = await response.json();
 
   if (!response.ok) {
-    // Use the server's error message so we see the real problem
     throw new Error(data.error || `API Error: ${response.status} ${response.statusText}`);
   }
 
   return data;
 }
 
-// Auth endpoints
+// ── Auth endpoints ──────────────────────────────────────────────────
 export const authApi = {
   register: (username: string, email: string, password: string, role: string) =>
     apiRequest("/auth/register", { method: "POST", body: { username, email, password, role } }),
@@ -66,14 +68,55 @@ export const authApi = {
   clearToken: clearAuthToken,
 };
 
-// Creator endpoints
+// ── Profile endpoints ───────────────────────────────────────────────
+export const profileApi = {
+  /** Update username and/or bio */
+  updateProfile: (data: { username?: string; bio?: string }) =>
+    apiRequest("/auth/profile", { method: "PUT", body: data }),
+
+  /** Save Cloudinary URL to user's profileImage in DB */
+  updateProfileImage: (profileImageUrl: string) =>
+    apiRequest("/auth/profile/image", { method: "PUT", body: { profileImageUrl } }),
+
+  /** Upload image directly to Cloudinary from browser, returns secure_url */
+  uploadImageToCloudinary: async (file: File): Promise<string> => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    if (!cloudName || cloudName === "your_cloud_name") {
+      throw new Error("VITE_CLOUDINARY_CLOUD_NAME is not set in .env");
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "fandomforge_preset");
+    formData.append("folder", "fandomforge/profiles");
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      { method: "POST", body: formData }
+    );
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || "Cloudinary upload failed");
+    }
+
+    const result = await response.json();
+    return result.secure_url as string;
+  },
+
+  /** Update creator-specific settings (subscription price, banner) */
+  updateCreatorSettings: (data: { subscriptionPrice?: number; bannerImage?: string }) =>
+    apiRequest("/auth/creator-settings", { method: "PUT", body: data }),
+};
+
+// ── Creator endpoints ───────────────────────────────────────────────
 export const creatorApi = {
   getAll: () => apiRequest("/creators"),
   getById: (id: string) => apiRequest(`/creators/${id}`),
   update: (id: string, data: any) => apiRequest(`/creators/${id}`, { method: "PUT", body: data }),
 };
 
-// Video endpoints
+// ── Video endpoints ─────────────────────────────────────────────────
 export const videoApi = {
   getAll: () => apiRequest("/videos"),
   getById: (id: string) => apiRequest(`/videos/${id}`),
@@ -88,18 +131,15 @@ export const videoApi = {
     price?: number;
     categoryId?: string | null;
   }) => {
-    // Build a clean body — never send null/undefined categoryId
     const body: any = {
       title: data.title,
       videoUrl: data.videoUrl,
       type: data.type,
-      // Always send price as a number; server will stringify for Drizzle
       price: data.price ?? 0,
     };
     if (data.description) body.description = data.description;
     if (data.thumbnailUrl) body.thumbnailUrl = data.thumbnailUrl;
     if (data.categoryId && data.categoryId !== "") body.categoryId = data.categoryId;
-
     return apiRequest("/videos", { method: "POST", body });
   },
 
@@ -109,8 +149,6 @@ export const videoApi = {
   delete: (id: string) =>
     apiRequest(`/videos/${id}`, { method: "DELETE" }),
 
-  // Direct Cloudinary upload — no longer used from the dialog
-  // (kept for backwards compat)
   uploadFile: async (file: File) => {
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     const formData = new FormData();
@@ -129,7 +167,7 @@ export const videoApi = {
   },
 };
 
-// Subscription endpoints
+// ── Subscription endpoints ──────────────────────────────────────────
 export const subscriptionApi = {
   getAll: () => apiRequest("/subscriptions"),
   check: (creatorId: string) => apiRequest(`/subscriptions/check/${creatorId}`),
@@ -137,7 +175,7 @@ export const subscriptionApi = {
     apiRequest("/payments/subscribe", { method: "POST", body: { creatorId, priceId } }),
 };
 
-// Video Engagement (Likes/Shares)
+// ── Engagement endpoints ────────────────────────────────────────────
 export const engagementApi = {
   like: (videoId: string) =>
     apiRequest(`/videos/${videoId}/like`, { method: "POST" }),
@@ -151,13 +189,13 @@ export const engagementApi = {
     apiRequest(`/videos/${videoId}/view`, { method: "POST" }),
 };
 
-// Payment endpoints
+// ── Payment endpoints ───────────────────────────────────────────────
 export const paymentApi = {
   createPPV: (videoId: string, creatorId: string, amount: string) =>
     apiRequest("/payments/ppv", { method: "POST", body: { videoId, creatorId, amount } }),
 };
 
-// Category endpoints
+// ── Category endpoints ──────────────────────────────────────────────
 export const categoryApi = {
   getAll: () => apiRequest("/categories"),
   create: (name: string) => apiRequest("/categories", { method: "POST", body: { name } }),

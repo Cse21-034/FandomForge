@@ -56,7 +56,8 @@ export function useAuth() {
         setError(null);
         return response;
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Registration failed";
+        const errorMsg =
+          err instanceof Error ? err.message : "Registration failed";
         setError(errorMsg);
         throw err;
       } finally {
@@ -66,30 +67,37 @@ export function useAuth() {
     []
   );
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      try {
-        setLoading(true);
-        const response = await authApi.login(email, password);
-        authApi.setToken(response.token);
-        setUser(response.user);
-        setError(null);
-        return response;
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Login failed";
-        setError(errorMsg);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      const response = await authApi.login(email, password);
+      authApi.setToken(response.token);
+      setUser(response.user);
+      setError(null);
+      return response;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Login failed";
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const logout = useCallback(() => {
     authApi.clearToken();
     setUser(null);
     setError(null);
+  }, []);
+
+  /** Call this after a profile update to refresh the user object in memory */
+  const refreshUser = useCallback(async () => {
+    try {
+      const userData = await authApi.getMe();
+      setUser(userData);
+    } catch {
+      // silently fail
+    }
   }, []);
 
   return {
@@ -99,6 +107,7 @@ export function useAuth() {
     register,
     login,
     logout,
+    refreshUser,
     isAuthenticated: !!user,
     isCreator: user?.role === "creator",
   };

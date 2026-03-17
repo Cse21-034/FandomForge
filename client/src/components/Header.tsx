@@ -1,5 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { Search, Video, User, LogOut, Home, Compass, LayoutDashboard, Bell, Menu, X } from "lucide-react";
+import {
+  Search, Video, User, LogOut, Home, Compass,
+  LayoutDashboard, X, Settings,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -16,12 +19,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 interface HeaderProps {
   userRole?: "creator" | "consumer" | null;
   username?: string;
+  profileImage?: string;
   isAuthenticated?: boolean;
   onSearch?: (query: string) => void;
   onLogout?: () => void;
 }
 
-export function Header({ userRole, username, isAuthenticated, onSearch, onLogout }: HeaderProps) {
+export function Header({
+  userRole,
+  username,
+  profileImage,
+  isAuthenticated,
+  onSearch,
+  onLogout,
+}: HeaderProps) {
   const [location, navigate] = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -34,9 +45,7 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
   }, []);
 
   useEffect(() => {
-    if (searchOpen && searchRef.current) {
-      searchRef.current.focus();
-    }
+    if (searchOpen && searchRef.current) searchRef.current.focus();
   }, [searchOpen]);
 
   const handleLogout = () => {
@@ -64,7 +73,7 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
 
   return (
     <>
-      {/* ── Desktop / Top Header ── */}
+      {/* ── Top Header ── */}
       <header
         className={`sticky top-0 z-50 w-full transition-all duration-300 ${
           scrolled
@@ -84,13 +93,13 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
             </div>
             <span
               className="font-display font-800 text-xl tracking-tight hidden sm:block"
-              style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}
+              style={{ fontFamily: "var(--font-display)", fontWeight: 800 }}
             >
-              Fandom<span className="text-[hsl(var(--primary))]">Forge</span>
+              Fandom<span style={{ color: "hsl(var(--primary))" }}>Forge</span>
             </span>
           </Link>
 
-          {/* Search bar — expands on mobile tap */}
+          {/* Search — desktop always visible, mobile expands */}
           <div
             className={`flex-1 transition-all duration-300 ${
               searchOpen ? "max-w-full" : "max-w-md hidden sm:block"
@@ -102,7 +111,7 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
                 ref={searchRef}
                 type="search"
                 placeholder="Search creators, videos…"
-                className="pl-10 pr-4 h-9 bg-muted/60 border-transparent focus:border-primary/50 focus:bg-background rounded-full text-sm input-focus-ring"
+                className="pl-10 pr-4 h-9 bg-muted/60 border-transparent focus:border-primary/50 focus:bg-background rounded-full text-sm"
                 onChange={(e) => onSearch?.(e.target.value)}
                 onBlur={() => setSearchOpen(false)}
                 data-testid="input-search"
@@ -119,24 +128,38 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
             {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
           </button>
 
-          {/* Desktop nav */}
+          {/* Desktop nav links */}
           <nav className="hidden md:flex items-center gap-1 ml-2">
             <Link href="/browse">
-              <Button variant="ghost" size="sm" className="rounded-full font-medium" data-testid="button-browse">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full font-medium"
+                data-testid="button-browse"
+              >
                 Browse
               </Button>
             </Link>
-
             {isAuthenticated && userRole === "creator" && (
               <Link href="/creator/dashboard">
-                <Button variant="ghost" size="sm" className="rounded-full font-medium" data-testid="button-creator-dashboard">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full font-medium"
+                  data-testid="button-creator-dashboard"
+                >
                   Studio
                 </Button>
               </Link>
             )}
             {isAuthenticated && userRole === "consumer" && (
               <Link href="/consumer/dashboard">
-                <Button variant="ghost" size="sm" className="rounded-full font-medium" data-testid="button-consumer-dashboard">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full font-medium"
+                  data-testid="button-consumer-dashboard"
+                >
                   Library
                 </Button>
               </Link>
@@ -150,18 +173,16 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
               <>
                 {/* Role pill */}
                 <div
-                  className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    userRole === "creator"
-                      ? "bg-[hsl(var(--primary))/0.12] text-[hsl(var(--primary))]"
-                      : "bg-[hsl(var(--accent))/0.12] text-[hsl(var(--accent))]"
-                  }`}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
                   style={{
-                    background: userRole === "creator"
-                      ? "hsl(var(--primary) / 0.12)"
-                      : "hsl(var(--accent) / 0.12)",
-                    color: userRole === "creator"
-                      ? "hsl(var(--primary))"
-                      : "hsl(195 100% 42%)",
+                    background:
+                      userRole === "creator"
+                        ? "hsl(var(--primary) / 0.12)"
+                        : "hsl(195 100% 50% / 0.12)",
+                    color:
+                      userRole === "creator"
+                        ? "hsl(var(--primary))"
+                        : "hsl(195 100% 42%)",
                   }}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-current live-dot" />
@@ -176,32 +197,98 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
                       data-testid="button-profile"
                     >
                       <Avatar className="h-8 w-8 ring-2 ring-background shadow-md group-hover:ring-primary/50 transition-all">
-                        <AvatarFallback className="bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white text-xs font-bold">
+                        {profileImage && (
+                          <AvatarImage src={profileImage} alt={username} />
+                        )}
+                        <AvatarFallback
+                          className="text-white text-xs font-bold"
+                          style={{
+                            background:
+                              "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))",
+                          }}
+                        >
                           {initials}
                         </AvatarFallback>
                       </Avatar>
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52 rounded-2xl shadow-xl p-2">
-                    <div className="px-2 py-2 mb-1">
-                      <p className="text-sm font-semibold truncate">{username}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{userRole}</p>
+
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-56 rounded-2xl shadow-xl p-2"
+                  >
+                    {/* User info header */}
+                    <div className="flex items-center gap-3 px-2 py-2 mb-1">
+                      <Avatar className="h-9 w-9 flex-shrink-0">
+                        {profileImage && (
+                          <AvatarImage src={profileImage} alt={username} />
+                        )}
+                        <AvatarFallback
+                          className="text-white text-xs font-bold"
+                          style={{
+                            background:
+                              "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))",
+                          }}
+                        >
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{username}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {userRole}
+                        </p>
+                      </div>
                     </div>
+
                     <DropdownMenuSeparator />
+
+                    {/* Profile */}
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/profile"
+                        className="cursor-pointer rounded-xl flex items-center"
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        My Profile
+                      </Link>
+                    </DropdownMenuItem>
+
+                    {/* Dashboard / Library */}
                     {userRole === "creator" ? (
                       <DropdownMenuItem asChild>
-                        <Link href="/creator/dashboard" className="cursor-pointer rounded-xl">
-                          <LayoutDashboard className="h-4 w-4 mr-2" /> Studio
+                        <Link
+                          href="/creator/dashboard"
+                          className="cursor-pointer rounded-xl flex items-center"
+                        >
+                          <LayoutDashboard className="h-4 w-4 mr-2" />
+                          Creator Studio
                         </Link>
                       </DropdownMenuItem>
                     ) : (
                       <DropdownMenuItem asChild>
-                        <Link href="/consumer/dashboard" className="cursor-pointer rounded-xl">
-                          <LayoutDashboard className="h-4 w-4 mr-2" /> My Library
+                        <Link
+                          href="/consumer/dashboard"
+                          className="cursor-pointer rounded-xl flex items-center"
+                        >
+                          <LayoutDashboard className="h-4 w-4 mr-2" />
+                          My Library
                         </Link>
                       </DropdownMenuItem>
                     )}
+
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/profile"
+                        className="cursor-pointer rounded-xl flex items-center"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+
                     <DropdownMenuSeparator />
+
                     <DropdownMenuItem
                       onClick={handleLogout}
                       className="text-destructive focus:text-destructive rounded-xl cursor-pointer"
@@ -215,14 +302,20 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
             ) : (
               <div className="hidden sm:flex items-center gap-2">
                 <Link href="/auth">
-                  <Button variant="ghost" size="sm" className="rounded-full" data-testid="button-login">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-full"
+                    data-testid="button-login"
+                  >
                     Sign In
                   </Button>
                 </Link>
                 <Link href="/auth">
                   <Button
                     size="sm"
-                    className="rounded-full bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.9)] text-white shadow-md"
+                    className="rounded-full text-white shadow-md border-none"
+                    style={{ background: "hsl(var(--primary))" }}
                     data-testid="button-signup"
                   >
                     Get Started
@@ -233,7 +326,7 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
           </div>
         </div>
 
-        {/* Mobile search expanded overlay */}
+        {/* Mobile expanded search */}
         {searchOpen && (
           <div className="sm:hidden px-4 pb-3">
             <div className="relative">
@@ -260,24 +353,46 @@ export function Header({ userRole, username, isAuthenticated, onSearch, onLogout
               <Link key={href} href={href}>
                 <button
                   className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl transition-all tap-highlight ${
-                    isActive
-                      ? "text-[hsl(var(--primary))]"
-                      : "text-muted-foreground"
+                    isActive ? "" : "text-muted-foreground"
                   }`}
+                  style={isActive ? { color: "hsl(var(--primary))" } : {}}
                 >
-                  <div
-                    className={`p-1.5 rounded-xl transition-all ${
-                      isActive
-                        ? "bg-[hsl(var(--primary)/0.12)]"
-                        : ""
+                  {/* Show profile image in bottom nav if on profile tab */}
+                  {href === "/profile" && isAuthenticated && profileImage ? (
+                    <div
+                      className={`w-7 h-7 rounded-full overflow-hidden transition-all ${
+                        isActive
+                          ? "ring-2"
+                          : ""
+                      }`}
+                      style={isActive ? { ringColor: "hsl(var(--primary))" } : {}}
+                    >
+                      <img
+                        src={profileImage}
+                        alt={username}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className={`p-1.5 rounded-xl transition-all ${isActive ? "" : ""}`}
+                      style={
+                        isActive
+                          ? { background: "hsl(var(--primary) / 0.12)" }
+                          : {}
+                      }
+                    >
+                      <Icon
+                        className="h-5 w-5"
+                        strokeWidth={isActive ? 2.5 : 2}
+                      />
+                    </div>
+                  )}
+                  <span
+                    className={`text-[10px] font-medium ${
+                      isActive ? "font-semibold" : ""
                     }`}
-                    style={{
-                      background: isActive ? "hsl(var(--primary) / 0.12)" : undefined,
-                    }}
                   >
-                    <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
-                  </div>
-                  <span className={`text-[10px] font-medium ${isActive ? "font-semibold" : ""}`}>
                     {label}
                   </span>
                 </button>

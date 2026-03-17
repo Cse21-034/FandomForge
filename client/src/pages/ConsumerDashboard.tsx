@@ -53,6 +53,7 @@ export default function ConsumerDashboard() {
         isAuthenticated={isAuthenticated}
         userRole={user?.role as "creator" | "consumer" | null}
         username={user?.username}
+        profileImage={user?.profileImage}
         onLogout={logout}
       />
 

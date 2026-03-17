@@ -124,7 +124,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch user" });
     }
   });
+ // =====================================================================
+// ADD THESE ROUTES to server/routes.ts
+// Place them after the existing auth routes section
+// =====================================================================
 
+// ── UPDATE USER PROFILE (username, bio, profileImage) ──────────────
+app.put("/api/auth/profile", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { username, bio } = req.body;
+    const userId = req.user!.userId;
+
+    // Build update object — only include fields that were sent
+    const updates: Record<string, any> = {};
+    if (username && username.trim()) updates.username = username.trim();
+    if (bio !== undefined) updates.bio = bio.trim();
+
+    const updatedUser = await storage.updateUser(userId, updates);
+    if (!updatedUser) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    res.json({
+      id: updatedUser.id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      role: req.user!.role,
+      bio: updatedUser.bio,
+      profileImage: updatedUser.profileImage,
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+// ── UPLOAD PROFILE IMAGE TO CLOUDINARY ─────────────────────────────
+// The frontend uploads the image directly to Cloudinary (same pattern
+// as video uploads) and then calls this endpoint to save the URL.
+app.put("/api/auth/profile/image", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { profileImageUrl } = req.body;
+    const userId = req.user!.userId;
+
+    if (!profileImageUrl || typeof profileImageUrl !== "string") {
+      res.status(400).json({ error: "profileImageUrl is required" });
+      return;
+    }
+
+    const updatedUser = await storage.updateUser(userId, {
+      profileImage: profileImageUrl,
+    });
+
+    if (!updatedUser) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    // If user is a creator, also update their creator banner/profile info
+    const creator = await storage.getCreatorByUserId(userId);
+    if (creator) {
+      await storage.updateCreator(creator.id, {
+        bannerImage: creator.bannerImage, // keep existing banner
+      });
+    }
+
+    res.json({
+      id: updatedUser.id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      role: req.user!.role,
+      bio: updatedUser.bio,
+      profileImage: updatedUser.profileImage,
+    });
+  } catch (error) {
+    console.error("Update profile image error:", error);
+    res.status(500).json({ error: "Failed to update profile image" });
+  }
+});
+
+// ── UPDATE CREATOR SUBSCRIPTION PRICE ──────────────────────────────
+app.put("/api/auth/creator-settings", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { subscriptionPrice, bannerImage } = req.body;
+      const creator = await storage.getCreatorByUserId(req.user!.userId);
+
+      if (!creator) {
+        res.status(404).json({ error: "Creator profile not found" });
+        return;
+      }
+
+      const updates: Record<string, any> = {};
+      if (subscriptionPrice !== undefined) {
+        const price = parseFloat(String(subscriptionPrice));
+        if (isNaN(price) || price < 0) {
+          res.status(400).json({ error: "Invalid subscription price" });
+          return;
+        }
+        updates.subscriptionPrice = price.toFixed(2);
+      }
+      if (bannerImage) updates.bannerImage = bannerImage;
+
+      const updated = await storage.updateCreator(creator.id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Update creator settings error:", error);
+      res.status(500).json({ error: "Failed to update creator settings" });
+    }
+  }
+);
   // ==================== CREATORS ====================
   app.get("/api/creators", async (_req, res) => {
     try {
