@@ -36,6 +36,7 @@ export function VideoCard(props: VideoCardProps) {
   const isPaid      = v ? v.type === "paid" : (props.isPaid ?? false);
   const views       = v?.views        ?? props.views        ?? 0;
   const creatorName = props.creatorName  ?? "Creator";
+  const creatorAvatar = props.creatorAvatar;
   const duration    = props.duration  ?? "";
   const onClick     = props.onClick;
 
@@ -96,8 +97,17 @@ export function VideoCard(props: VideoCardProps) {
 
       {/* Info */}
       <div className="flex gap-3 px-0.5">
-        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-[hsl(var(--primary)/0.7)] to-[hsl(var(--accent)/0.7)] flex items-center justify-center text-white text-xs font-bold shadow-sm mt-0.5">
-          {creatorName.charAt(0).toUpperCase()}
+        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-[hsl(var(--primary)/0.7)] to-[hsl(var(--accent)/0.7)] flex items-center justify-center text-white text-xs font-bold shadow-sm mt-0.5 overflow-hidden">
+          {creatorAvatar ? (
+            <img
+              src={creatorAvatar}
+              alt={creatorName}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            creatorName.charAt(0).toUpperCase()
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-sm leading-snug line-clamp-2 text-foreground group-hover:text-[hsl(var(--primary))] transition-colors">

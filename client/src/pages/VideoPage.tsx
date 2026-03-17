@@ -123,6 +123,7 @@ export default function VideoPage() {
         <Header
           userRole={user?.role as any}
           username={user?.username}
+          profileImage={user?.profileImage}
           isAuthenticated={isAuthenticated}
         />
         <div className="max-w-7xl mx-auto px-4 py-16 flex items-center justify-center">
@@ -172,6 +173,7 @@ export default function VideoPage() {
       <Header
         userRole={user?.role as any}
         username={user?.username}
+        profileImage={user?.profileImage}
         isAuthenticated={isAuthenticated}
       />
 
