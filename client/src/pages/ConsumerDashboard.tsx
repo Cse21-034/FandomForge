@@ -35,10 +35,15 @@ export default function ConsumerDashboard() {
       const creatorMap = Object.fromEntries(
         creators.filter(Boolean).map((c: any) => [c.id, c])
       );
-      return videos.map((v: any) => ({
-        ...v,
-        _creator: creatorMap[v.creatorId] || null,
-      }));
+      return videos.map((v: any) => {
+        const creator = creatorMap[v.creatorId] || null;
+        const avatar = creator?.profileImage || creator?.imageUrl || undefined;
+        return {
+          ...v,
+          _creator: creator,
+          _creatorAvatar: avatar,
+        };
+      });
     },
     enabled: isAuthenticated,
   });
@@ -158,7 +163,7 @@ export default function ConsumerDashboard() {
                   key={video.id}
                   video={video}
                   creatorName={video._creator?.user?.username || "Creator"}
-                  creatorAvatar={video._creator?.imageUrl || undefined}
+                  creatorAvatar={video._creatorAvatar}
                   onClick={() => navigate(`/video/${video.id}`)}
                 />
               ))}

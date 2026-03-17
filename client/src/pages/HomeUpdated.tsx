@@ -71,6 +71,16 @@ export default function HomePage() {
     },
   ];
 
+  // Attach creator avatar to each video
+  const videosWithAvatars = videosWithCreators.map((v: any) => {
+    const creator = v._creator || {};
+    const avatar = creator.profileImage || creator.imageUrl || undefined;
+    return {
+      ...v,
+      _creatorAvatar: avatar,
+    };
+  });
+
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
       <Header
@@ -180,14 +190,14 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
               {[...Array(6)].map((_, i) => <VideoSkeleton key={i} />)}
             </div>
-          ) : videosWithCreators.length > 0 ? (
+          ) : videosWithAvatars.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {videosWithCreators.map((video: any) => (
+              {videosWithAvatars.map((video: any) => (
                 <VideoCard
                   key={video.id}
                   video={video}
                   creatorName={video._creator?.user?.username || "Creator"}
-                  creatorAvatar={video._creator?.imageUrl || undefined}
+                  creatorAvatar={video._creatorAvatar}
                   onClick={() => navigate(`/video/${video.id}`)}
                 />
               ))}

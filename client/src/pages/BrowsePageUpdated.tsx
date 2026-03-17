@@ -45,10 +45,16 @@ export default function BrowsePageUpdated() {
         creators.filter(Boolean).map((c: any) => [c.id, c])
       );
       // Attach creator info to each video
-      return videos.map((v: any) => ({
-        ...v,
-        _creator: creatorMap[v.creatorId] || null,
-      }));
+      return videos.map((v: any) => {
+        const creator = creatorMap[v.creatorId] || null;
+        // Prefer profileImage, fallback to imageUrl
+        const avatar = creator?.profileImage || creator?.imageUrl || undefined;
+        return {
+          ...v,
+          _creator: creator,
+          _creatorAvatar: avatar,
+        };
+      });
     },
   });
 
@@ -243,7 +249,7 @@ export default function BrowsePageUpdated() {
                 key={video.id}
                 video={video}
                 creatorName={video._creator?.user?.username || "Creator"}
-                creatorAvatar={video._creator?.imageUrl || undefined}
+                creatorAvatar={video._creatorAvatar}
                 onClick={() => navigate(`/video/${video.id}`)}
               />
             ))}

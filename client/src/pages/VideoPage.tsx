@@ -51,10 +51,15 @@ export default function VideoPage() {
         creators.filter(Boolean).map((c: any) => [c.id, c])
       );
       // Attach creator info to each video
-      return videos.map((v: any) => ({
-        ...v,
-        _creator: creatorMap[v.creatorId] || null,
-      }));
+      return videos.map((v: any) => {
+        const creator = creatorMap[v.creatorId] || null;
+        const avatar = creator?.profileImage || creator?.imageUrl || undefined;
+        return {
+          ...v,
+          _creator: creator,
+          _creatorAvatar: avatar,
+        };
+      });
     },
     enabled: !!video?.creatorId,
   });
@@ -180,6 +185,8 @@ export default function VideoPage() {
 
   const creatorName = creator?.user?.username || "Creator";
   const creatorInitials = creatorName.slice(0, 2).toUpperCase();
+  // Prefer profileImage, fallback to imageUrl
+  const creatorAvatar = creator?.profileImage || creator?.imageUrl || undefined;
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad page-enter">
@@ -286,7 +293,9 @@ export default function VideoPage() {
               {/* Creator card */}
               <div className="bg-card border border-card-border rounded-2xl p-4 flex items-center gap-3">
                 <Avatar className="h-12 w-12 rounded-2xl">
-                  <AvatarImage src={creator?.imageUrl} />
+                  {creatorAvatar ? (
+                    <AvatarImage src={creatorAvatar} />
+                  ) : null}
                   <AvatarFallback
                     className="rounded-2xl text-sm font-bold text-white"
                     style={{
@@ -366,7 +375,7 @@ export default function VideoPage() {
                     key={v.id}
                     video={v}
                     creatorName={v._creator?.user?.username || "Creator"}
-                    creatorAvatar={v._creator?.imageUrl || undefined}
+                    creatorAvatar={v._creatorAvatar}
                     onClick={() => navigate(`/video/${v.id}`)}
                   />
                 ))}
