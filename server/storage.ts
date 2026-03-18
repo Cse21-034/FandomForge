@@ -6,12 +6,20 @@ import {
   type Subscription,
   type Payment,
   type Category,
+  type Comment,
+  type WatchlistItem,
+  type Notification,
+  type DirectMessage,
   users,
   creators,
   videos,
   subscriptions,
   payments,
   categories,
+  comments,
+  watchlist,
+  notifications,
+  directMessages,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or } from "drizzle-orm";
@@ -71,6 +79,31 @@ export interface IStorage {
   getPayment(id: string): Promise<Payment | undefined>;
   getPaymentsByCreatorId(creatorId: string): Promise<Payment[]>;
   updatePayment(id: string, updates: Partial<Payment>): Promise<Payment | undefined>;
+
+  // Comments
+  createComment(comment: any): Promise<Comment>;
+  getCommentsByVideoId(videoId: string): Promise<Comment[]>;
+  getComment(id: string): Promise<Comment | undefined>;
+  deleteComment(id: string): Promise<boolean>;
+
+  // Watchlist
+  addToWatchlist(watchlistItem: any): Promise<WatchlistItem>;
+  removeFromWatchlist(userId: string, videoId: string): Promise<boolean>;
+  getWatchlist(userId: string): Promise<WatchlistItem[]>;
+  isInWatchlist(userId: string, videoId: string): Promise<boolean>;
+
+  // Notifications
+  createNotification(notification: any): Promise<Notification>;
+  getUserNotifications(userId: string): Promise<Notification[]>;
+  markNotificationAsRead(notificationId: string): Promise<Notification | undefined>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+
+  // Direct Messages
+  createDirectMessage(message: any): Promise<DirectMessage>;
+  getConversation(user1Id: string, user2Id: string): Promise<DirectMessage[]>;
+  getUserConversations(userId: string): Promise<DirectMessage[]>;
+  markMessageAsRead(messageId: string): Promise<DirectMessage | undefined>;
+  getUnreadMessageCount(userId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -315,6 +348,173 @@ async getCreatorSubscriptions(creatorId: string): Promise<Subscription[]> {
       .where(eq(payments.id, id))
       .returning();
     return result[0];
+  }
+
+  // Comments
+  async createComment(comment: any): Promise<Comment> {
+    const result = await db.insert(comments).values(comment).returning();
+    return result[0];
+  }
+
+  async getCommentsByVideoId(videoId: string): Promise<Comment[]> {
+    return db
+      .select()
+      .from(comments)
+      .where(eq(comments.videoId, videoId));
+  }
+
+  async getComment(id: string): Promise<Comment | undefined> {
+    const result = await db.select().from(comments).where(eq(comments.id, id));
+    return result[0];
+  }
+
+  async deleteComment(id: string): Promise<boolean> {
+    await db.delete(comments).where(eq(comments.id, id));
+    return true;
+  }
+
+  // Watchlist
+  async addToWatchlist(watchlistItem: any): Promise<WatchlistItem> {
+    const result = await db.insert(watchlist).values(watchlistItem).returning();
+    return result[0];
+  }
+
+  async removeFromWatchlist(userId: string, videoId: string): Promise<boolean> {
+    await db
+      .delete(watchlist)
+      .where(
+        and(
+          eq(watchlist.userId, userId),
+          eq(watchlist.videoId, videoId)
+        )
+      );
+    return true;
+  }
+
+  async getWatchlist(userId: string): Promise<WatchlistItem[]> {
+    return db
+      .select()
+      .from(watchlist)
+      .where(eq(watchlist.userId, userId));
+  }
+
+  async isInWatchlist(userId: string, videoId: string): Promise<boolean> {
+    const result = await db
+      .select()
+      .from(watchlist)
+      .where(
+        and(
+          eq(watchlist.userId, userId),
+          eq(watchlist.videoId, videoId)
+        )
+      );
+    return result.length > 0;
+  }
+
+  // Notifications
+  async createNotification(notification: any): Promise<Notification> {
+    const result = await db
+      .insert(notifications)
+      .values(notification)
+      .returning();
+    return result[0];
+  }
+
+  async getUserNotifications(userId: string): Promise<Notification[]> {
+    return db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId));
+  }
+
+  async markNotificationAsRead(
+    notificationId: string
+  ): Promise<Notification | undefined> {
+    const result = await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, notificationId))
+      .returning();
+    return result[0];
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const result = await db
+      .select()
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.isRead, false)
+        )
+      );
+    return result.length;
+  }
+
+  // Direct Messages
+  async createDirectMessage(message: any): Promise<DirectMessage> {
+    const result = await db
+      .insert(directMessages)
+      .values(message)
+      .returning();
+    return result[0];
+  }
+
+  async getConversation(
+    user1Id: string,
+    user2Id: string
+  ): Promise<DirectMessage[]> {
+    return db
+      .select()
+      .from(directMessages)
+      .where(
+        or(
+          and(
+            eq(directMessages.senderId, user1Id),
+            eq(directMessages.recipientId, user2Id)
+          ),
+          and(
+            eq(directMessages.senderId, user2Id),
+            eq(directMessages.recipientId, user1Id)
+          )
+        )
+      );
+  }
+
+  async getUserConversations(userId: string): Promise<DirectMessage[]> {
+    return db
+      .select()
+      .from(directMessages)
+      .where(
+        or(
+          eq(directMessages.senderId, userId),
+          eq(directMessages.recipientId, userId)
+        )
+      );
+  }
+
+  async markMessageAsRead(
+    messageId: string
+  ): Promise<DirectMessage | undefined> {
+    const result = await db
+      .update(directMessages)
+      .set({ isRead: true })
+      .where(eq(directMessages.id, messageId))
+      .returning();
+    return result[0];
+  }
+
+  async getUnreadMessageCount(userId: string): Promise<number> {
+    const result = await db
+      .select()
+      .from(directMessages)
+      .where(
+        and(
+          eq(directMessages.recipientId, userId),
+          eq(directMessages.isRead, false)
+        )
+      );
+    return result.length;
   }
 }
 

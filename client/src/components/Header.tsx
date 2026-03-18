@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
 import {
   Search, Video, User, LogOut, Home, Compass,
-  LayoutDashboard, X, Settings,
+  LayoutDashboard, X, Settings, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useState, useEffect, useRef } from "react";
 import {
   DropdownMenu,
@@ -171,6 +172,20 @@ export function Header({
 
             {isAuthenticated ? (
               <>
+                {/* Notification Bell */}
+                <NotificationBell />
+
+                {/* Messages Button */}
+                <Link href="/messages">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                  >
+                    <Mail className="w-5 h-5" />
+                  </Button>
+                </Link>
+
                 {/* Role pill */}
                 <div
                   className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -365,7 +380,7 @@ export function Header({
                           ? "ring-2"
                           : ""
                       }`}
-                      style={isActive ? { ringColor: "hsl(var(--primary))" } : {}}
+                      style={isActive ? { boxShadow: `0 0 0 2px hsl(var(--primary))` } : {}}
                     >
                       <img
                         src={profileImage}

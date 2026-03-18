@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Header } from "@/components/Header";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { CommentsSection } from "@/components/CommentsSection";
+import { WatchlistButton } from "@/components/WatchlistButton";
+import { SendMessageDialog } from "@/components/SendMessageDialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VideoCard } from "@/components/VideoCard";
@@ -279,6 +282,8 @@ export default function VideoPage() {
                   <Share2 className="h-4 w-4 mr-1.5" />
                   Share
                 </Button>
+
+                <WatchlistButton videoId={videoId!} />
               </div>
 
               {/* Description */}
@@ -323,28 +328,34 @@ export default function VideoPage() {
 
                 {/* Subscribe button — hidden for own videos */}
                 {!isOwnVideo ? (
-                  <Button
-                    onClick={handleSubscribe}
-                    disabled={subscribingInProgress || isSubscribed}
-                    size="sm"
-                    className={`rounded-full font-bold flex-shrink-0 border-none ${
-                      isSubscribed ? "bg-muted text-muted-foreground" : "text-white"
-                    }`}
-                    style={
-                      !isSubscribed ? { background: "hsl(var(--primary))" } : {}
-                    }
-                  >
-                    {subscribingInProgress ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : isSubscribed ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 mr-1" />
-                        Subscribed
-                      </>
-                    ) : (
-                      `$${creator?.subscriptionPrice || "9.99"}/mo`
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSubscribe}
+                      disabled={subscribingInProgress || isSubscribed}
+                      size="sm"
+                      className={`rounded-full font-bold flex-shrink-0 border-none ${
+                        isSubscribed ? "bg-muted text-muted-foreground" : "text-white"
+                      }`}
+                      style={
+                        !isSubscribed ? { background: "hsl(var(--primary))" } : {}
+                      }
+                    >
+                      {subscribingInProgress ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : isSubscribed ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          Subscribed
+                        </>
+                      ) : (
+                        `$${creator?.subscriptionPrice || "9.99"}/mo`
+                      )}
+                    </Button>
+                    <SendMessageDialog
+                      recipientId={creator?.userId || ""}
+                      recipientName={creator?.user?.username || "Creator"}
+                    />
+                  </div>
                 ) : (
                   <span
                     className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0"
@@ -357,6 +368,9 @@ export default function VideoPage() {
                   </span>
                 )}
               </div>
+
+              {/* Comments Section */}
+              <CommentsSection videoId={videoId!} />
             </div>
           </div>
 

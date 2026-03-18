@@ -12,6 +12,8 @@ import CreatorDashboardUpdated from "@/pages/CreatorDashboardUpdated";
 import ConsumerDashboard from "@/pages/ConsumerDashboard";
 import VideoPage from "@/pages/VideoPage";
 import ProfilePage from "@/pages/ProfilePage";
+import MessagesPage from "@/pages/MessagesPage";
+import WatchlistPage from "@/pages/WatchlistPage";
 
 function Router() {
   return (
@@ -30,6 +32,8 @@ function Router() {
       {/* Protected — components handle their own auth redirects */}
       <Route path="/creator/dashboard" component={CreatorDashboardUpdated} />
       <Route path="/consumer/dashboard" component={ConsumerDashboard} />
+      <Route path="/messages" component={MessagesPage} />
+      <Route path="/watchlist" component={WatchlistPage} />
 
       {/* 404 */}
       <Route component={NotFound} />

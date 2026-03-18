@@ -48,8 +48,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username,
         email,
         password: hashedPassword,
-        role: role || "consumer",
-      });
+      } as any);
       if (role === "creator") {
         await storage.createCreator({
           userId: user.id,
@@ -734,7 +733,11 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
       if (video) {
         const newViews = (parseInt(String(video.views || 0)) + 1).toString();
         const updated = await storage.updateVideo(videoId, { views: parseInt(newViews) });
-        res.json({ views: updated.views, alreadyCounted: false });
+        if (updated) {
+          res.json({ views: updated.views, alreadyCounted: false });
+        } else {
+          res.json({ views: parseInt(newViews), alreadyCounted: false });
+        }
       } else {
         res.status(404).json({ error: "Video not found" });
       }
@@ -764,6 +767,347 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
       } catch (error) {
         console.error("Create category error:", error);
         res.status(500).json({ error: "Failed to create category" });
+      }
+    }
+  );
+
+  // ==================== COMMENTS ====================
+  app.post("/api/videos/:videoId/comments", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { videoId } = req.params;
+        const { content } = req.body;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        if (!content || !content.trim()) {
+          return res.status(400).json({ error: "Comment content is required" });
+        }
+
+        const comment = await storage.createComment({
+          userId,
+          videoId,
+          content: content.trim(),
+        });
+
+        // Create notification for video creator
+        const video = await storage.getVideo(videoId);
+        if (video) {
+          const creator = await storage.getCreator(video.creatorId);
+          if (creator) {
+            const user = await storage.getUser(userId);
+            await storage.createNotification({
+              userId: creator.userId,
+              type: "new_comment",
+              content: `${user?.username} commented on your video "${video.title}"`,
+              relatedUserId: userId,
+              relatedVideoId: videoId,
+            });
+          }
+        }
+
+        res.status(201).json(comment);
+      } catch (error) {
+        console.error("Create comment error:", error);
+        res.status(500).json({ error: "Failed to create comment" });
+      }
+    }
+  );
+
+  app.get("/api/videos/:videoId/comments", async (req, res) => {
+    try {
+      const { videoId } = req.params;
+      const comments_list = await storage.getCommentsByVideoId(videoId);
+      res.json(comments_list);
+    } catch (error) {
+      console.error("Get comments error:", error);
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  app.delete("/api/comments/:commentId", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { commentId } = req.params;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const comment = await storage.getComment(commentId);
+        if (!comment) {
+          return res.status(404).json({ error: "Comment not found" });
+        }
+
+        if (comment.userId !== userId) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        await storage.deleteComment(commentId);
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Delete comment error:", error);
+        res.status(500).json({ error: "Failed to delete comment" });
+      }
+    }
+  );
+
+  // ==================== WATCHLIST ====================
+  app.post("/api/watchlist", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { videoId } = req.body;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        if (!videoId) {
+          return res.status(400).json({ error: "Video ID is required" });
+        }
+
+        const isInWatchlist = await storage.isInWatchlist(userId, videoId);
+        if (isInWatchlist) {
+          return res.status(400).json({ error: "Video already in watchlist" });
+        }
+
+        const item = await storage.addToWatchlist({ userId, videoId });
+        res.status(201).json(item);
+      } catch (error) {
+        console.error("Add to watchlist error:", error);
+        res.status(500).json({ error: "Failed to add to watchlist" });
+      }
+    }
+  );
+
+  app.get("/api/watchlist", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const items = await storage.getWatchlist(userId);
+        res.json(items);
+      } catch (error) {
+        console.error("Get watchlist error:", error);
+        res.status(500).json({ error: "Failed to fetch watchlist" });
+      }
+    }
+  );
+
+  app.delete("/api/watchlist/:videoId", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { videoId } = req.params;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        await storage.removeFromWatchlist(userId, videoId);
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Remove from watchlist error:", error);
+        res.status(500).json({ error: "Failed to remove from watchlist" });
+      }
+    }
+  );
+
+  app.get("/api/watchlist/check/:videoId", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { videoId } = req.params;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const isInWatchlist = await storage.isInWatchlist(userId, videoId);
+        res.json({ isInWatchlist });
+      } catch (error) {
+        console.error("Check watchlist error:", error);
+        res.status(500).json({ error: "Failed to check watchlist" });
+      }
+    }
+  );
+
+  // ==================== NOTIFICATIONS ====================
+  app.get("/api/notifications", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const notifs = await storage.getUserNotifications(userId);
+        res.json(notifs);
+      } catch (error) {
+        console.error("Get notifications error:", error);
+        res.status(500).json({ error: "Failed to fetch notifications" });
+      }
+    }
+  );
+
+  app.get("/api/notifications/unread-count", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const count = await storage.getUnreadNotificationCount(userId);
+        res.json({ count });
+      } catch (error) {
+        console.error("Get unread notification count error:", error);
+        res.status(500).json({ error: "Failed to fetch notification count" });
+      }
+    }
+  );
+
+  app.patch("/api/notifications/:notificationId/read", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { notificationId } = req.params;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const notif = await storage.markNotificationAsRead(notificationId);
+        res.json(notif);
+      } catch (error) {
+        console.error("Mark notification as read error:", error);
+        res.status(500).json({ error: "Failed to mark notification as read" });
+      }
+    }
+  );
+
+  // ==================== DIRECT MESSAGES ====================
+  app.post("/api/messages", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { recipientId, content } = req.body;
+        const senderId = req.user?.userId;
+
+        if (!senderId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        if (!recipientId || !content) {
+          return res.status(400).json({ error: "Recipient ID and content are required" });
+        }
+
+        if (senderId === recipientId) {
+          return res.status(400).json({ error: "Cannot message yourself" });
+        }
+
+        const recipient = await storage.getUser(recipientId);
+        if (!recipient) {
+          return res.status(404).json({ error: "Recipient not found" });
+        }
+
+        const message = await storage.createDirectMessage({
+          senderId,
+          recipientId,
+          content: content.trim(),
+        });
+
+        // Create notification for recipient
+        const sender = await storage.getUser(senderId);
+        await storage.createNotification({
+          userId: recipientId,
+          type: "new_message",
+          content: `New message from ${sender?.username}`,
+          relatedUserId: senderId,
+        });
+
+        res.status(201).json(message);
+      } catch (error) {
+        console.error("Create message error:", error);
+        res.status(500).json({ error: "Failed to send message" });
+      }
+    }
+  );
+
+  app.get("/api/messages/conversation/:userId", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { userId } = req.params;
+        const currentUserId = req.user?.userId;
+
+        if (!currentUserId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const conversation = await storage.getConversation(currentUserId, userId);
+        res.json(conversation);
+      } catch (error) {
+        console.error("Get conversation error:", error);
+        res.status(500).json({ error: "Failed to fetch conversation" });
+      }
+    }
+  );
+
+  app.get("/api/messages/inbox", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const messages = await storage.getUserConversations(userId);
+        res.json(messages);
+      } catch (error) {
+        console.error("Get inbox error:", error);
+        res.status(500).json({ error: "Failed to fetch inbox" });
+      }
+    }
+  );
+
+  app.get("/api/messages/unread-count", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const userId = req.user?.userId;
+
+        if (!userId) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const count = await storage.getUnreadMessageCount(userId);
+        res.json({ count });
+      } catch (error) {
+        console.error("Get unread message count error:", error);
+        res.status(500).json({ error: "Failed to fetch message count" });
+      }
+    }
+  );
+
+  app.patch("/api/messages/:messageId/read", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { messageId } = req.params;
+        const message = await storage.markMessageAsRead(messageId);
+        res.json(message);
+      } catch (error) {
+        console.error("Mark message as read error:", error);
+        res.status(500).json({ error: "Failed to mark message as read" });
       }
     }
   );

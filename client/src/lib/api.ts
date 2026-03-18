@@ -200,3 +200,42 @@ export const categoryApi = {
   getAll: () => apiRequest("/categories"),
   create: (name: string) => apiRequest("/categories", { method: "POST", body: { name } }),
 };
+
+// ── Comments endpoints ──────────────────────────────────────────────
+export const commentApi = {
+  getByVideoId: (videoId: string) => apiRequest(`/videos/${videoId}/comments`),
+  create: (videoId: string, content: string) =>
+    apiRequest(`/videos/${videoId}/comments`, { method: "POST", body: { content } }),
+  delete: (commentId: string) =>
+    apiRequest(`/comments/${commentId}`, { method: "DELETE" }),
+};
+
+// ── Watchlist endpoints ─────────────────────────────────────────────
+export const watchlistApi = {
+  add: (videoId: string) =>
+    apiRequest("/watchlist", { method: "POST", body: { videoId } }),
+  remove: (videoId: string) =>
+    apiRequest(`/watchlist/${videoId}`, { method: "DELETE" }),
+  getAll: () => apiRequest("/watchlist"),
+  check: (videoId: string) => apiRequest(`/watchlist/check/${videoId}`),
+};
+
+// ── Notifications endpoints ─────────────────────────────────────────
+export const notificationApi = {
+  getAll: () => apiRequest("/notifications"),
+  getUnreadCount: () => apiRequest("/notifications/unread-count"),
+  markAsRead: (notificationId: string) =>
+    apiRequest(`/notifications/${notificationId}/read`, { method: "PATCH" }),
+};
+
+// ── Direct Messages endpoints ───────────────────────────────────────
+export const messageApi = {
+  send: (recipientId: string, content: string) =>
+    apiRequest("/messages", { method: "POST", body: { recipientId, content } }),
+  getConversation: (userId: string) =>
+    apiRequest(`/messages/conversation/${userId}`),
+  getInbox: () => apiRequest("/messages/inbox"),
+  getUnreadCount: () => apiRequest("/messages/unread-count"),
+  markAsRead: (messageId: string) =>
+    apiRequest(`/messages/${messageId}/read`, { method: "PATCH" }),
+};

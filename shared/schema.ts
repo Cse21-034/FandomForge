@@ -17,6 +17,13 @@ export const userRoleEnum = pgEnum("user_role", ["consumer", "creator", "admin"]
 export const videoTypeEnum = pgEnum("video_type", ["free", "paid"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "completed", "failed"]);
 export const paymentTypeEnum = pgEnum("payment_type", ["subscription", "ppv"]);
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "new_video",
+  "new_subscriber",
+  "new_comment",
+  "new_message",
+  "subscription_expiring",
+]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -142,6 +149,64 @@ export const videoViews = pgTable("video_views", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Comments Table
+export const comments = pgTable("comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  videoId: varchar("video_id")
+    .notNull()
+    .references(() => videos.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Watchlist Table
+export const watchlist = pgTable("watchlist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  videoId: varchar("video_id")
+    .notNull()
+    .references(() => videos.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Notifications Table
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: notificationTypeEnum("type").notNull(),
+  content: text("content").notNull(),
+  relatedUserId: varchar("related_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  relatedVideoId: varchar("related_video_id").references(() => videos.id, {
+    onDelete: "set null",
+  }),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Direct Messages Table
+export const directMessages = pgTable("direct_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  senderId: varchar("sender_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  recipientId: varchar("recipient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 // Zod Schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -180,6 +245,31 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
   type: true,
 });
 
+export const insertCommentSchema = createInsertSchema(comments).pick({
+  userId: true,
+  videoId: true,
+  content: true,
+});
+
+export const insertWatchlistSchema = createInsertSchema(watchlist).pick({
+  userId: true,
+  videoId: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).pick({
+  userId: true,
+  type: true,
+  content: true,
+  relatedUserId: true,
+  relatedVideoId: true,
+});
+
+export const insertDirectMessageSchema = createInsertSchema(directMessages).pick({
+  senderId: true,
+  recipientId: true,
+  content: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -188,3 +278,7 @@ export type Video = typeof videos.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Category = typeof categories.$inferSelect;
+export type Comment = typeof comments.$inferSelect;
+export type WatchlistItem = typeof watchlist.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type DirectMessage = typeof directMessages.$inferSelect;
