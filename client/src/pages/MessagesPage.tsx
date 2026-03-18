@@ -6,12 +6,32 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
-import { MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Send, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
+function ConversationSkeleton() {
+  return (
+    <div className="w-full text-left p-3 rounded-lg bg-slate-100 dark:bg-slate-800 space-y-2">
+      <div className="h-4 rounded-full skeleton-wave w-3/4" />
+      <div className="h-3 rounded-full skeleton-wave w-full" />
+    </div>
+  );
+}
+
+function MessageSkeleton() {
+  return (
+    <div className="flex justify-start mb-4">
+      <div className="max-w-xs rounded-lg p-3 space-y-2">
+        <div className="h-3 rounded skeleton-wave w-48" />
+        <div className="h-3 rounded skeleton-wave w-32" />
+      </div>
+    </div>
+  );
+}
+
 export default function MessagesPage() {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [_location, navigate] = useLocation();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [messageContent, setMessageContent] = useState("");
@@ -19,16 +39,16 @@ export default function MessagesPage() {
   const { toast } = useToast();
 
   // All hooks must be called BEFORE any conditional returns
-  const { data: inbox = [] } = useQuery({
+  const { data: inbox = [], isLoading: inboxLoading } = useQuery({
     queryKey: ["messages-inbox"],
     queryFn: () => messageApi.getInbox(),
-    enabled: isAuthenticated && !loading,
+    enabled: isAuthenticated && !authLoading,
   });
 
-  const { data: conversation = [] } = useQuery({
+  const { data: conversation = [], isLoading: conversationLoading } = useQuery({
     queryKey: ["messages-conversation", selectedUserId],
     queryFn: () => messageApi.getConversation(selectedUserId!),
-    enabled: !!selectedUserId && isAuthenticated && !loading,
+    enabled: !!selectedUserId && isAuthenticated && !authLoading,
     refetchInterval: 3000,
   });
 
@@ -52,8 +72,15 @@ export default function MessagesPage() {
   });
 
   // Now we can do early returns after all hooks are declared
-  if (loading) {
-    return <div>Loading...</div>;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        <Header isAuthenticated={false} />
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        </div>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
@@ -99,7 +126,13 @@ export default function MessagesPage() {
           {/* Conversations List */}
           <div className="md:col-span-1 space-y-2">
             <h2 className="font-semibold text-lg">Conversations</h2>
-            {conversationPartners.length === 0 ? (
+            {inboxLoading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <ConversationSkeleton key={i} />
+                ))}
+              </div>
+            ) : conversationPartners.length === 0 ? (
               <div className="text-sm text-slate-500 dark:text-slate-400 py-4">
                 No conversations yet
               </div>
@@ -137,7 +170,13 @@ export default function MessagesPage() {
               <>
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-96">
-                  {conversation.length === 0 ? (
+                  {conversationLoading ? (
+                    <div className="space-y-4">
+                      {[...Array(3)].map((_, i) => (
+                        <MessageSkeleton key={i} />
+                      ))}
+                    </div>
+                  ) : conversation.length === 0 ? (
                     <div className="text-center text-slate-500 dark:text-slate-400 py-8">
                       No messages yet
                     </div>
