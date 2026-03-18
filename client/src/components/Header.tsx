@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   Search, Video, User, LogOut, Home, Compass,
-  LayoutDashboard, X, Settings, Mail,
+  LayoutDashboard, X, Settings, Mail, Bookmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,9 @@ export function Header({
   const mobileNavItems = [
     { href: "/", icon: Home, label: "Home" },
     { href: "/browse", icon: Compass, label: "Browse" },
+    ...(isAuthenticated
+      ? [{ href: "/watchlist", icon: Bookmark, label: "Saved" }]
+      : []),
     ...(isAuthenticated && userRole === "creator"
       ? [{ href: "/creator/dashboard", icon: LayoutDashboard, label: "Studio" }]
       : isAuthenticated
@@ -100,7 +103,7 @@ export function Header({
             </span>
           </Link>
 
-          {/* Search — desktop always visible, mobile expands */}
+          {/* Search */}
           <div
             className={`flex-1 transition-all duration-300 ${
               searchOpen ? "max-w-full" : "max-w-md hidden sm:block"
@@ -177,12 +180,20 @@ export function Header({
 
                 {/* Messages Button */}
                 <Link href="/messages">
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <Mail className="w-5 h-5" />
+                  </Button>
+                </Link>
+
+                {/* Watchlist Button — visible on desktop */}
+                <Link href="/watchlist">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-full"
+                    className="rounded-full hidden sm:flex"
+                    title="My Watchlist"
                   >
-                    <Mail className="w-5 h-5" />
+                    <Bookmark className="w-5 h-5" />
                   </Button>
                 </Link>
 
@@ -292,6 +303,17 @@ export function Header({
                       </DropdownMenuItem>
                     )}
 
+                    {/* ✅ Watchlist link in dropdown */}
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/watchlist"
+                        className="cursor-pointer rounded-xl flex items-center"
+                      >
+                        <Bookmark className="h-4 w-4 mr-2" />
+                        My Watchlist
+                      </Link>
+                    </DropdownMenuItem>
+
                     <DropdownMenuItem asChild>
                       <Link
                         href="/profile"
@@ -372,14 +394,9 @@ export function Header({
                   }`}
                   style={isActive ? { color: "hsl(var(--primary))" } : {}}
                 >
-                  {/* Show profile image in bottom nav if on profile tab */}
                   {href === "/profile" && isAuthenticated && profileImage ? (
                     <div
-                      className={`w-7 h-7 rounded-full overflow-hidden transition-all ${
-                        isActive
-                          ? "ring-2"
-                          : ""
-                      }`}
+                      className={`w-7 h-7 rounded-full overflow-hidden transition-all ${isActive ? "ring-2" : ""}`}
                       style={isActive ? { boxShadow: `0 0 0 2px hsl(var(--primary))` } : {}}
                     >
                       <img
@@ -390,24 +407,13 @@ export function Header({
                     </div>
                   ) : (
                     <div
-                      className={`p-1.5 rounded-xl transition-all ${isActive ? "" : ""}`}
-                      style={
-                        isActive
-                          ? { background: "hsl(var(--primary) / 0.12)" }
-                          : {}
-                      }
+                      className="p-1.5 rounded-xl transition-all"
+                      style={isActive ? { background: "hsl(var(--primary) / 0.12)" } : {}}
                     >
-                      <Icon
-                        className="h-5 w-5"
-                        strokeWidth={isActive ? 2.5 : 2}
-                      />
+                      <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
                     </div>
                   )}
-                  <span
-                    className={`text-[10px] font-medium ${
-                      isActive ? "font-semibold" : ""
-                    }`}
-                  >
+                  <span className={`text-[10px] font-medium ${isActive ? "font-semibold" : ""}`}>
                     {label}
                   </span>
                 </button>
