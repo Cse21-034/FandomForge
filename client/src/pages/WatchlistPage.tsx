@@ -1,73 +1,172 @@
 import { useQuery } from "@tanstack/react-query";
-import { watchlistApi, videoApi as videoApiModule } from "@/lib/api";
+import { watchlistApi, creatorApi } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { VideoCard } from "@/components/VideoCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
-import { Bookmark } from "lucide-react";
+import { Bookmark, Compass } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function WatchlistPage() {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading, logout } = useAuth();
   const [_location, navigate] = useLocation();
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    navigate("/");
-    return null;
-  }
-
+  // ✅ ALL hooks must be called before any early return
   const { data: watchlistItems = [], isLoading: watchlistLoading } = useQuery({
     queryKey: ["watchlist"],
     queryFn: () => watchlistApi.getAll(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !loading,
   });
 
-  const { data: allVideos = [], isLoading: videosLoading } = useQuery({
-    queryKey: ["videos"],
-    queryFn: () => videoApiModule.getAll(),
-    enabled: isAuthenticated,
+  const { data: watchlistVideos = [], isLoading: videosLoading } = useQuery({
+    queryKey: ["watchlist-videos", watchlistItems.map((i: any) => i.videoId).join(",")],
+    queryFn: async () => {
+      if (!watchlistItems.length) return [];
+
+      // Fetch each video individually (we have their IDs from watchlist)
+      const videoIds = watchlistItems.map((item: any) => item.videoId);
+      const videoPromises = videoIds.map((id: string) =>
+        fetch(`/api/videos/${id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      );
+
+      const results = await Promise.all(videoPromises);
+      return results.filter(Boolean);
+    },
+    enabled: isAuthenticated && !loading && watchlistItems.length > 0,
   });
 
-  const watchlistVideoIds = new Set(watchlistItems.map((item: any) => item.videoId));
-  const watchlistVideos = allVideos.filter((video: any) =>
-    watchlistVideoIds.has(video.id)
+  // Fetch creators for the videos so we can show creator names
+  const creatorIds: string[] = Array.from(
+    new Set(watchlistVideos.map((v: any) => v.creatorId).filter(Boolean))
   );
 
+  const { data: creatorsData = [] } = useQuery({
+    queryKey: ["watchlist-creators", creatorIds.join(",")],
+    queryFn: () =>
+      Promise.all(creatorIds.map((id) => creatorApi.getById(id).catch(() => null))),
+    enabled: creatorsData !== undefined && creatorIds.length > 0,
+  });
+
+  const creatorMap: Record<string, any> = {};
+  if (Array.isArray(creatorsData)) {
+    creatorsData.filter(Boolean).forEach((c: any) => {
+      creatorMap[c.id] = c;
+    });
+  }
+
+  // ✅ Early returns AFTER all hooks
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div
+            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center animate-pulse"
+            style={{ background: "hsl(var(--primary) / 0.15)" }}
+          >
+            <Bookmark className="h-6 w-6" style={{ color: "hsl(var(--primary))" }} />
+          </div>
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    navigate("/auth");
+    return null;
+  }
+
+  const isLoading = watchlistLoading || videosLoading;
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-background mobile-content-pad">
       <Header
         isAuthenticated={isAuthenticated}
-        userRole={user?.role as any}
+        userRole={user?.role as "creator" | "consumer" | null}
         username={user?.username}
         profileImage={user?.profileImage}
+        onLogout={logout}
       />
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-2 mb-8">
-          <Bookmark className="w-6 h-6" />
-          <h1 className="text-3xl font-bold">My Watchlist</h1>
-        </div>
-
-        {watchlistLoading || videosLoading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : watchlistVideos.length === 0 ? (
-          <div className="text-center py-12">
-            <Bookmark className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-4" />
-            <p className="text-slate-500 dark:text-slate-400">
-              You haven't saved any videos yet
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 page-enter">
+        {/* Page header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center"
+            style={{ background: "hsl(var(--primary) / 0.10)" }}
+          >
+            <Bookmark className="h-5 w-5" style={{ color: "hsl(var(--primary))" }} />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold font-display leading-tight">
+              My Watchlist
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isLoading
+                ? "Loading saved videos…"
+                : `${watchlistVideos.length} saved video${watchlistVideos.length !== 1 ? "s" : ""}`}
             </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {watchlistVideos.map((video: any) => (
-              <VideoCard key={video.id} video={video} />
+        </div>
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="space-y-3">
+                <div className="aspect-video rounded-2xl skeleton-wave" />
+                <div className="flex gap-3">
+                  <div className="w-9 h-9 rounded-full skeleton-wave flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 rounded-full skeleton-wave w-3/4" />
+                    <div className="h-3 rounded-full skeleton-wave w-1/2" />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
+        ) : watchlistVideos.length === 0 ? (
+          <div className="text-center py-16 rounded-3xl border border-dashed border-border bg-muted/20">
+            <div className="w-16 h-16 rounded-2xl bg-muted mx-auto flex items-center justify-center mb-4">
+              <Bookmark className="h-8 w-8 text-muted-foreground/30" />
+            </div>
+            <p className="font-medium text-muted-foreground mb-1">
+              No saved videos yet
+            </p>
+            <p className="text-sm text-muted-foreground/60 mb-5">
+              Click the "Save" button on any video to add it here
+            </p>
+            <Button
+              onClick={() => navigate("/browse")}
+              className="rounded-2xl font-bold text-white border-none"
+              style={{ background: "hsl(var(--primary))" }}
+            >
+              <Compass className="h-4 w-4 mr-2" />
+              Browse Videos
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+            {watchlistVideos.map((video: any) => {
+              const creator = creatorMap[video.creatorId];
+              return (
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  creatorName={creator?.user?.username || "Creator"}
+                  creatorAvatar={creator?.user?.profileImage || undefined}
+                  onClick={() => navigate(`/video/${video.id}`)}
+                />
+              );
+            })}
+          </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
