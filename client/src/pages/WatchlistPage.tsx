@@ -7,60 +7,66 @@ import { useLocation } from "wouter";
 import { Bookmark, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 export default function WatchlistPage() {
   const { user, isAuthenticated, loading, logout } = useAuth();
   const [_location, navigate] = useLocation();
 
-  // ✅ ALL hooks must be called before any early return
+  // Step 1: get watchlist items (just {userId, videoId} records)
   const { data: watchlistItems = [], isLoading: watchlistLoading } = useQuery({
     queryKey: ["watchlist"],
     queryFn: () => watchlistApi.getAll(),
     enabled: isAuthenticated && !loading,
   });
 
+  // Step 2: fetch actual video data for each watchlisted videoId
+  const videoIds: string[] = (watchlistItems as any[])
+    .map((item: any) => item.videoId)
+    .filter(Boolean);
+
   const { data: watchlistVideos = [], isLoading: videosLoading } = useQuery({
-    queryKey: ["watchlist-videos", watchlistItems.map((i: any) => i.videoId).join(",")],
+    queryKey: ["watchlist-videos", videoIds.join(",")],
     queryFn: async () => {
-      if (!watchlistItems.length) return [];
-
-      // Fetch each video individually (we have their IDs from watchlist)
-      const videoIds = watchlistItems.map((item: any) => item.videoId);
-      const videoPromises = videoIds.map((id: string) =>
-        fetch(`/api/videos/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        })
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null)
+      if (!videoIds.length) return [];
+      const token = localStorage.getItem("authToken");
+      const results = await Promise.all(
+        videoIds.map((id) =>
+          fetch(`${API_BASE_URL}/videos/${id}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null)
+        )
       );
-
-      const results = await Promise.all(videoPromises);
       return results.filter(Boolean);
     },
-    enabled: isAuthenticated && !loading && watchlistItems.length > 0,
+    enabled: videoIds.length > 0,
   });
 
-  // Fetch creators for the videos so we can show creator names
+  // Step 3: collect unique creatorIds from the fetched videos
+  const videos = watchlistVideos as any[];
   const creatorIds: string[] = Array.from(
-    new Set(watchlistVideos.map((v: any) => v.creatorId).filter(Boolean))
+    new Set(videos.map((v) => v.creatorId).filter(Boolean))
   );
 
-  const { data: creatorsData = [] } = useQuery({
+  // Step 4: fetch creators — enabled only when we have creatorIds
+  const { data: creatorsRaw = [] } = useQuery({
     queryKey: ["watchlist-creators", creatorIds.join(",")],
     queryFn: () =>
-      Promise.all(creatorIds.map((id) => creatorApi.getById(id).catch(() => null))),
-    enabled: creatorsData !== undefined && creatorIds.length > 0,
+      Promise.all(
+        creatorIds.map((id) => creatorApi.getById(id).catch(() => null))
+      ),
+    enabled: creatorIds.length > 0,
   });
 
+  // Build lookup map
   const creatorMap: Record<string, any> = {};
-  if (Array.isArray(creatorsData)) {
-    creatorsData.filter(Boolean).forEach((c: any) => {
-      creatorMap[c.id] = c;
-    });
-  }
+  (creatorsRaw as any[]).filter(Boolean).forEach((c: any) => {
+    if (c?.id) creatorMap[c.id] = c;
+  });
 
-  // ✅ Early returns AFTER all hooks
+  // ── Early returns AFTER all hooks ──────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -110,11 +116,12 @@ export default function WatchlistPage() {
             <p className="text-sm text-muted-foreground">
               {isLoading
                 ? "Loading saved videos…"
-                : `${watchlistVideos.length} saved video${watchlistVideos.length !== 1 ? "s" : ""}`}
+                : `${videos.length} saved video${videos.length !== 1 ? "s" : ""}`}
             </p>
           </div>
         </div>
 
+        {/* Loading skeletons */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {[...Array(4)].map((_, i) => (
@@ -130,7 +137,8 @@ export default function WatchlistPage() {
               </div>
             ))}
           </div>
-        ) : watchlistVideos.length === 0 ? (
+        ) : videos.length === 0 ? (
+          /* Empty state */
           <div className="text-center py-16 rounded-3xl border border-dashed border-border bg-muted/20">
             <div className="w-16 h-16 rounded-2xl bg-muted mx-auto flex items-center justify-center mb-4">
               <Bookmark className="h-8 w-8 text-muted-foreground/30" />
@@ -151,8 +159,9 @@ export default function WatchlistPage() {
             </Button>
           </div>
         ) : (
+          /* Video grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-            {watchlistVideos.map((video: any) => {
+            {videos.map((video: any) => {
               const creator = creatorMap[video.creatorId];
               return (
                 <VideoCard
