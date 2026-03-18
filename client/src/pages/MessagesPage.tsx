@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { messageApi, authApi } from "@/lib/api";
+import { messageApi } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,25 +18,17 @@ export default function MessagesPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    navigate("/");
-    return null;
-  }
-
+  // All hooks must be called BEFORE any conditional returns
   const { data: inbox = [] } = useQuery({
     queryKey: ["messages-inbox"],
     queryFn: () => messageApi.getInbox(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !loading,
   });
 
   const { data: conversation = [] } = useQuery({
     queryKey: ["messages-conversation", selectedUserId],
     queryFn: () => messageApi.getConversation(selectedUserId!),
-    enabled: !!selectedUserId && isAuthenticated,
+    enabled: !!selectedUserId && isAuthenticated && !loading,
     refetchInterval: 3000,
   });
 
@@ -58,6 +50,16 @@ export default function MessagesPage() {
       });
     },
   });
+
+  // Now we can do early returns after all hooks are declared
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    navigate("/");
+    return null;
+  }
 
   // Get unique conversation partners
   const conversationPartners = Array.from(
