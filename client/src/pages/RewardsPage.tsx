@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { referralApi } from "@/lib/api";
-import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -152,14 +151,6 @@ export default function RewardsPage() {
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
-      <Header
-        isAuthenticated={isAuthenticated}
-        userRole={user?.role as any}
-        username={user?.username}
-        profileImage={user?.profileImage}
-        onLogout={logout}
-      />
-
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 page-enter">
 
         {/* ── Hero ── */}

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { messageApi } from "@/lib/api";
-import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,7 +74,6 @@ export default function MessagesPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-        <Header isAuthenticated={false} />
         <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
         </div>
@@ -109,13 +107,6 @@ export default function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <Header
-        isAuthenticated={isAuthenticated}
-        userRole={user?.role as any}
-        username={user?.username}
-        profileImage={user?.profileImage}
-      />
-
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-2 mb-8">
           <MessageCircle className="w-6 h-6" />

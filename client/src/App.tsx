@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { Header } from "@/components/Header";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
 import HomeUpdated from "@/pages/HomeUpdated";
@@ -55,7 +56,8 @@ function App() {
           <Toaster />
           <PWAInstallBanner />
           {/* <DownloadPopupBanner />      
-          <DesktopDownloadBanner /> */}  
+          <DesktopDownloadBanner /> */}
+          <Header />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

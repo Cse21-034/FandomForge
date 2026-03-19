@@ -2,7 +2,6 @@ import { useState, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { profileApi, videoApi } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -348,14 +347,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
-      <Header
-        isAuthenticated={isAuthenticated}
-        userRole={effectiveUser.role as "creator" | "consumer"}
-        username={effectiveUser.username}
-        profileImage={effectiveUser.profileImage}
-        onLogout={logout}
-      />
-
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10 page-enter space-y-5">
 
         {/* ── Profile card ── */}

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { videoApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { Header } from "@/components/Header";
 import { UploadVideoDialog } from "@/components/UploadVideoDialog";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/StatCard";
@@ -120,14 +119,6 @@ export default function CreatorDashboardUpdated() {
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
-      <Header
-        isAuthenticated
-        userRole="creator"
-        username={user?.username}
-        profileImage={user?.profileImage}
-        onLogout={logout}
-      />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 page-enter">
         {/* Header */}
         <div className="flex items-start justify-between mb-6 sm:mb-8 gap-4">

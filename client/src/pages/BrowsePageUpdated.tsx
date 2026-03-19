@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { videoApi, categoryApi, creatorApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { Header } from "@/components/Header";
 import { VideoCard } from "@/components/VideoCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,14 +111,6 @@ export default function BrowsePageUpdated() {
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
-      <Header
-        isAuthenticated={isAuthenticated}
-        userRole={user?.role as "creator" | "consumer" | null}
-        username={user?.username}
-        profileImage={user?.profileImage}
-        onLogout={logout}
-      />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 page-enter">
         {/* Page header */}
         <div className="flex items-center gap-3 mb-6">

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Header } from "@/components/Header";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { CommentsSection } from "@/components/CommentsSection";
 import { WatchlistButton } from "@/components/WatchlistButton";
@@ -142,12 +141,6 @@ export default function VideoPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header
-          userRole={user?.role as any}
-          username={user?.username}
-          profileImage={user?.profileImage}
-          isAuthenticated={isAuthenticated}
-        />
         <div className="max-w-7xl mx-auto px-4 py-16 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -159,11 +152,6 @@ export default function VideoPage() {
   if (!video) {
     return (
       <div className="min-h-screen bg-background">
-        <Header
-          userRole={user?.role as any}
-          username={user?.username}
-          isAuthenticated={isAuthenticated}
-        />
         <div className="max-w-7xl mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground mb-4">Video not found</p>
           <Button onClick={() => navigate("/browse")} className="rounded-2xl">
@@ -194,13 +182,6 @@ export default function VideoPage() {
 
   return (
     <div className="min-h-screen bg-background mobile-content-pad page-enter">
-      <Header
-        userRole={user?.role as any}
-        username={user?.username}
-        profileImage={user?.profileImage}
-        isAuthenticated={isAuthenticated}
-      />
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {/* Back */}
         <button
