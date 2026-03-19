@@ -322,18 +322,7 @@ export function AppDownloadSection() {
 
           {/* ── Right: Text + download buttons ─────────────────────── */}
           <div className="order-1 lg:order-2">
-            {/* eyebrow */}
-            <div style={{
-              display:"inline-flex", alignItems:"center", gap:8,
-              background:"rgba(255,255,255,0.15)",
-              backdropFilter:"blur(10px)",
-              borderRadius:99, padding:"6px 14px",
-              marginBottom:20,
-              border:"1px solid rgba(255,255,255,0.25)",
-            }}>
-              <Download size={13} color="#fff" />
-             
-            </div>
+           
 
             <h2 style={{
               fontSize:"clamp(28px,5vw,48px)",
@@ -363,28 +352,34 @@ export function AppDownloadSection() {
            
 
             {/* Mobile (iOS + Android) */}
-            <div style={{ marginBottom:24 }}>
-              <p style={{
-                color:"rgba(255,255,255,0.55)",
-                fontSize:10, fontWeight:700,
-                letterSpacing:"0.1em", textTransform:"uppercase",
-                marginBottom:10,
-              }}>
-                📱 Mobile
-              </p>
-              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                {DOWNLOADS.filter(d => d.id === "ios" || d.id === "android").map(d => (
-                  <DownloadBtn
-                    key={d.id}
-                    platform={d}
-                    highlighted={d.id === platform}
-                    size="large"
-                  />
-                ))}
-              </div>
-            </div>
+            {/* Mobile (iOS + Android) */}
+<div style={{ 
+  marginBottom: 24,
+  backgroundColor: "#000000",  // Black background
+  padding: 16,  // Add some padding so content isn't flush against edges
+  borderRadius: 8  // Optional: adds rounded corners
+}}>
+  <p style={{
+    color:"rgba(255,255,255,0.55)",
+    fontSize:10, fontWeight:700,
+    letterSpacing:"0.1em", textTransform:"uppercase",
+    marginBottom:10,
+  }}>
+    📱 Mobile
+  </p>
+  <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+    {DOWNLOADS.filter(d => d.id === "ios" || d.id === "android").map(d => (
+      <DownloadBtn
+        key={d.id}
+        platform={d}
+        highlighted={d.id === platform}
+        size="large"
+      />
+    ))}
+  </div>
+</div>
 
-            {/* Desktop (Mac, Windows, Linux) */}
+            {/* Desktop (Mac, Windows, Linux) 
             <div style={{ marginBottom:32 }}>
               <p style={{
                 color:"rgba(255,255,255,0.55)",
@@ -403,7 +398,7 @@ export function AppDownloadSection() {
                   />
                 ))}
               </div>
-            </div>
+            </div>*/}
 
             {/* QR code + scan text */}
             <div style={{
