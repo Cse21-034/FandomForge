@@ -413,12 +413,7 @@ export default function VideoPage() {
               onOpenChange={setShowSubscriptionDialog}
               creatorId={creator.id}
               creatorName={creator.user?.username || "Creator"}
-              price={creator.subscriptionPrice}
-              onSuccess={() => {
-                setShowSubscriptionDialog(false);
-                setIsSubscribed(true);
-                toast({ title: "Subscription successful! 🎉" });
-              }}
+              amount={creator.subscriptionPrice}
             />
 
             {/* PPV Dialog */}
@@ -428,12 +423,7 @@ export default function VideoPage() {
               videoId={video.id}
               videoTitle={video.title}
               creatorId={video.creatorId}
-              price="5.00"
-              onSuccess={() => {
-                setShowPPVDialog(false);
-                refetchVideo();
-                toast({ title: "Payment successful! Enjoy the video 🎬" });
-              }}
+              amount={video.price || "5.00"}
             />
           </>
         )}
