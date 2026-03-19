@@ -351,31 +351,21 @@ export function AppDownloadSection() {
 
            
 
-            {/* Mobile (iOS + Android) */}
-            {/* Mobile (iOS + Android) */}
-<div style={{ 
-  marginBottom: 24,
-  backgroundColor: "#000000",  // Black background
-  padding: 16,  // Add some padding so content isn't flush against edges
-  borderRadius: 8  // Optional: adds rounded corners
-}}>
+    <div style={{ marginBottom:24 }}>
   <p style={{
     color:"rgba(255,255,255,0.55)",
     fontSize:10, fontWeight:700,
     letterSpacing:"0.1em", textTransform:"uppercase",
     marginBottom:10,
+    backgroundColor: "#000000",
+    padding: "4px 8px",  // Smaller padding
+    display: "inline-block",  // Only as wide as content
+    borderRadius: 4
   }}>
     📱 Mobile
   </p>
   <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-    {DOWNLOADS.filter(d => d.id === "ios" || d.id === "android").map(d => (
-      <DownloadBtn
-        key={d.id}
-        platform={d}
-        highlighted={d.id === platform}
-        size="large"
-      />
-    ))}
+    {/* ... */}
   </div>
 </div>
 
