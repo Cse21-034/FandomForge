@@ -579,8 +579,8 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
           amount: amount.toString(),
           currency: "USD",
           description: `Purchase: ${video.title}`,
-          returnUrl: `${process.env.PAYPAL_RETURN_URL || "http://localhost:5173"}/payment-success?videoId=${videoId}`,
-          cancelUrl: `${process.env.PAYPAL_CANCEL_URL || "http://localhost:5173"}/payment-cancel`,
+          returnUrl: `${process.env.PAYPAL_RETURN_URL || "http://localhost:5173/payment-success"}?videoId=${videoId}`,
+          cancelUrl: `${process.env.PAYPAL_CANCEL_URL || "http://localhost:5173/payment-cancel"}`,
         });
 
         // Store pending payment in DB
@@ -676,8 +676,8 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
           planId: plan.id,
           email: user.email,
           name: user.username,
-          returnUrl: `${process.env.PAYPAL_RETURN_URL || "http://localhost:5173"}/subscription-success?creatorId=${creatorId}`,
-          cancelUrl: `${process.env.PAYPAL_CANCEL_URL || "http://localhost:5173"}/subscription-cancel`,
+          returnUrl: `${process.env.PAYPAL_RETURN_URL || "http://localhost:5173/payment-success"}?creatorId=${creatorId}`,
+          cancelUrl: `${process.env.PAYPAL_CANCEL_URL || "http://localhost:5173/payment-cancel"}`,
         });
 
         res.json({
