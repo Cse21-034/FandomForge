@@ -332,9 +332,7 @@ export function AppDownloadSection() {
               border:"1px solid rgba(255,255,255,0.25)",
             }}>
               <Download size={13} color="#fff" />
-              <span style={{ color:"#fff", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-                Available on all platforms
-              </span>
+             
             </div>
 
             <h2 style={{
@@ -362,19 +360,7 @@ export function AppDownloadSection() {
               every device.
             </p>
 
-            {/* Feature pills */}
-            <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:32 }}>
-              {["Free forever","Offline mode","HD streaming","Dark mode"].map((f) => (
-                <span key={f} style={{
-                  background:"rgba(255,255,255,0.12)",
-                  border:"1px solid rgba(255,255,255,0.20)",
-                  borderRadius:99, padding:"4px 12px",
-                  color:"#fff", fontSize:11, fontWeight:600,
-                }}>
-                  {f}
-                </span>
-              ))}
-            </div>
+           
 
             {/* Mobile (iOS + Android) */}
             <div style={{ marginBottom:24 }}>
