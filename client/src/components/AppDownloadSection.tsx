@@ -351,7 +351,7 @@ export function AppDownloadSection() {
 
            
 
-  k 
+  
             {/* Mobile (iOS + Android) 
             <div style={{ marginBottom:24 }}>
               <p style={{
