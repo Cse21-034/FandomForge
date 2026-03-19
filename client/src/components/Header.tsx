@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
+import { PWAInstallButton } from "@/components/PWAInstallBanner";
 import { useState, useEffect, useRef } from "react";
 import {
   DropdownMenu,
@@ -71,13 +72,12 @@ export function Header({
       : isAuthenticated
       ? [{ href: "/consumer/dashboard", icon: LayoutDashboard, label: "Library" }]
       : []),
-      ...(isAuthenticated
-  ? [{ href: "/rewards", icon: Gift, label: "Rewards" }]
-  : []),
+    ...(isAuthenticated
+      ? [{ href: "/rewards", icon: Gift, label: "Rewards" }]
+      : []),
     ...(isAuthenticated
       ? [{ href: "/profile", icon: User, label: "Profile" }]
       : [{ href: "/auth", icon: User, label: "Sign In" }]),
-      
   ];
 
   return (
@@ -176,6 +176,9 @@ export function Header({
           </nav>
 
           <div className="flex items-center gap-2 ml-auto md:ml-0">
+            {/* ── PWA Install Button — shows when app is installable ── */}
+            <PWAInstallButton className="hidden sm:flex" />
+
             <ThemeToggle />
 
             {isAuthenticated ? (
@@ -276,10 +279,7 @@ export function Header({
 
                     {/* Profile */}
                     <DropdownMenuItem asChild>
-                      <Link
-                        href="/profile"
-                        className="cursor-pointer rounded-xl flex items-center"
-                      >
+                      <Link href="/profile" className="cursor-pointer rounded-xl flex items-center">
                         <User className="h-4 w-4 mr-2" />
                         My Profile
                       </Link>
@@ -288,49 +288,36 @@ export function Header({
                     {/* Dashboard / Library */}
                     {userRole === "creator" ? (
                       <DropdownMenuItem asChild>
-                        <Link
-                          href="/creator/dashboard"
-                          className="cursor-pointer rounded-xl flex items-center"
-                        >
+                        <Link href="/creator/dashboard" className="cursor-pointer rounded-xl flex items-center">
                           <LayoutDashboard className="h-4 w-4 mr-2" />
                           Creator Studio
                         </Link>
                       </DropdownMenuItem>
                     ) : (
                       <DropdownMenuItem asChild>
-                        <Link
-                          href="/consumer/dashboard"
-                          className="cursor-pointer rounded-xl flex items-center"
-                        >
+                        <Link href="/consumer/dashboard" className="cursor-pointer rounded-xl flex items-center">
                           <LayoutDashboard className="h-4 w-4 mr-2" />
                           My Library
                         </Link>
                       </DropdownMenuItem>
                     )}
-                     
-                     <DropdownMenuItem asChild>
-                      <Link href="/rewards" className="cursor-pointer rounded-xl flex items-center">
-                       <Gift className="h-4 w-4 mr-2" />
-                          Rewards &amp; Referrals
-                       </Link>
-                     </DropdownMenuItem>
 
-                    {/* ✅ Watchlist link in dropdown */}
                     <DropdownMenuItem asChild>
-                      <Link
-                        href="/watchlist"
-                        className="cursor-pointer rounded-xl flex items-center"
-                      >
+                      <Link href="/rewards" className="cursor-pointer rounded-xl flex items-center">
+                        <Gift className="h-4 w-4 mr-2" />
+                        Rewards &amp; Referrals
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link href="/watchlist" className="cursor-pointer rounded-xl flex items-center">
                         <Bookmark className="h-4 w-4 mr-2" />
                         My Watchlist
                       </Link>
                     </DropdownMenuItem>
 
                     <DropdownMenuItem asChild>
-                      <Link
-                        href="/profile"
-                        className="cursor-pointer rounded-xl flex items-center"
-                      >
+                      <Link href="/profile" className="cursor-pointer rounded-xl flex items-center">
                         <Settings className="h-4 w-4 mr-2" />
                         Settings
                       </Link>
