@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
-import { PWAInstallButton } from "@/components/PWAInstallBanner";
 import { useState, useEffect, useRef } from "react";
 import {
   DropdownMenu,
@@ -176,8 +175,7 @@ export function Header({
           </nav>
 
           <div className="flex items-center gap-2 ml-auto md:ml-0">
-            {/* ── PWA Install Button — shows when app is installable ── */}
-            <PWAInstallButton className="hidden sm:flex" />
+            {/* ── PWA Install Banner — shows automatically at bottom after delay ── */}
 
             <ThemeToggle />
 
