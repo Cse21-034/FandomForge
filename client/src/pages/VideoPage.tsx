@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { videoApi, creatorApi, engagementApi, subscriptionApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { PPVCheckout, SubscriptionCheckout } from "@/components/PayPalCheckout";
 
 export default function VideoPage() {
   const [_location, navigate] = useLocation();
@@ -25,6 +26,8 @@ export default function VideoPage() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [likingInProgress, setLikingInProgress] = useState(false);
   const [subscribingInProgress, setSubscribingInProgress] = useState(false);
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+  const [showPPVDialog, setShowPPVDialog] = useState(false);
 
   const videoId = new URL(window.location.href).pathname.split("/").pop();
 
@@ -126,15 +129,15 @@ export default function VideoPage() {
       navigate(`/auth?redirect=/video/${videoId}`);
       return;
     }
-    setSubscribingInProgress(true);
-    try {
-      toast({
-        title: `Subscribe to ${creator?.user?.username || "this creator"}`,
-        description: `$${creator?.subscriptionPrice || "9.99"}/month. Payment integration coming soon.`,
-      });
-    } finally {
-      setSubscribingInProgress(false);
+    setShowSubscriptionDialog(true);
+  };
+
+  const handlePayToUnlock = () => {
+    if (!isAuthenticated) {
+      navigate(`/auth?redirect=/video/${videoId}`);
+      return;
     }
+    setShowPPVDialog(true);
   };
 
   // ── Loading ────────────────────────────────────────────────────────
@@ -201,7 +204,7 @@ export default function VideoPage() {
                 isLocked={isLocked}
                 videoUrl={video.videoUrl}
                 thumbnail={video.thumbnailUrl}
-                onUnlock={handleSubscribe}
+                onUnlock={video.type === "paid" ? handlePayToUnlock : handleSubscribe}
               />
             </div>
 
@@ -400,6 +403,40 @@ export default function VideoPage() {
             </div>
           </div>
         </div>
+
+        {/* Payment Dialogs */}
+        {video && creator && (
+          <>
+            {/* Subscription Dialog */}
+            <SubscriptionCheckout
+              open={showSubscriptionDialog}
+              onOpenChange={setShowSubscriptionDialog}
+              creatorId={creator.id}
+              creatorName={creator.user?.username || "Creator"}
+              price={creator.subscriptionPrice}
+              onSuccess={() => {
+                setShowSubscriptionDialog(false);
+                setIsSubscribed(true);
+                toast({ title: "Subscription successful! 🎉" });
+              }}
+            />
+
+            {/* PPV Dialog */}
+            <PPVCheckout
+              open={showPPVDialog}
+              onOpenChange={setShowPPVDialog}
+              videoId={video.id}
+              videoTitle={video.title}
+              creatorId={video.creatorId}
+              price="5.00"
+              onSuccess={() => {
+                setShowPPVDialog(false);
+                refetchVideo();
+                toast({ title: "Payment successful! Enjoy the video 🎬" });
+              }}
+            />
+          </>
+        )}
       </div>
     </div>
   );
