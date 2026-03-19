@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Gift } from "lucide-react";
 
 interface HeaderProps {
   userRole?: "creator" | "consumer" | null;
@@ -70,9 +71,13 @@ export function Header({
       : isAuthenticated
       ? [{ href: "/consumer/dashboard", icon: LayoutDashboard, label: "Library" }]
       : []),
+      ...(isAuthenticated
+  ? [{ href: "/rewards", icon: Gift, label: "Rewards" }]
+  : []),
     ...(isAuthenticated
       ? [{ href: "/profile", icon: User, label: "Profile" }]
       : [{ href: "/auth", icon: User, label: "Sign In" }]),
+      
   ];
 
   return (
@@ -302,6 +307,13 @@ export function Header({
                         </Link>
                       </DropdownMenuItem>
                     )}
+                     
+                     <DropdownMenuItem asChild>
+                      <Link href="/rewards" className="cursor-pointer rounded-xl flex items-center">
+                       <Gift className="h-4 w-4 mr-2" />
+                          Rewards &amp; Referrals
+                       </Link>
+                     </DropdownMenuItem>
 
                     {/* ✅ Watchlist link in dropdown */}
                     <DropdownMenuItem asChild>

@@ -239,3 +239,63 @@ export const messageApi = {
   markAsRead: (messageId: string) =>
     apiRequest(`/messages/${messageId}/read`, { method: "PATCH" }),
 };
+
+// =====================================================================
+// Paste this block at the BOTTOM of client/src/lib/api.ts
+// =====================================================================
+
+// ── Referral / Rewards API ────────────────────────────────────────────
+export const referralApi = {
+  /** Get or create the user's referral code + pre-built share links */
+  getCode: () =>
+    apiRequest("/referral/code"),
+
+  /** Full stats: clicks, registrations, balance, recent events */
+  getStats: () =>
+    apiRequest("/referral/stats"),
+
+  /** Quick balance + estimatedUsd */
+  getBalance: () =>
+    apiRequest("/referral/balance"),
+
+  /** Points ledger (last 50 transactions) */
+  getHistory: () =>
+    apiRequest("/referral/history"),
+
+  /** Public top-20 leaderboard */
+  getLeaderboard: () =>
+    apiRequest("/referral/leaderboard"),
+
+  /** Track a referral link click — no auth needed */
+  trackClick: (code: string) =>
+    apiRequest("/referral/track-click", {
+      method: "POST",
+      body: { code },
+    }),
+
+  /** Credit referrer after new user signs up */
+  trackRegistration: (code: string, newUserId: string) =>
+    apiRequest("/referral/track-registration", {
+      method: "POST",
+      body: { code, newUserId },
+    }),
+
+  /** Request a cash withdrawal */
+  withdraw: (data: {
+    pointsAmount:   number;
+    paymentMethod:  string;
+    paymentDetails: Record<string, string>;
+  }) =>
+    apiRequest("/referral/withdraw", { method: "POST", body: data }),
+
+  /** List the user's past withdrawal requests */
+  getWithdrawals: () =>
+    apiRequest("/referral/withdrawals"),
+
+  /** Spend points to unlock a premium video */
+  usePointsForVideo: (videoId: string, pointsCost: number) =>
+    apiRequest("/referral/use-points", {
+      method: "POST",
+      body: { videoId, pointsCost },
+    }),
+};

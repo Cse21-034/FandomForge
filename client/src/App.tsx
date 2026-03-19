@@ -14,6 +14,8 @@ import VideoPage from "@/pages/VideoPage";
 import ProfilePage from "@/pages/ProfilePage";
 import MessagesPage from "@/pages/MessagesPage";
 import WatchlistPage from "@/pages/WatchlistPage";
+import RewardsPage from "@/pages/RewardsPage";
+import { useReferralTracker } from "@/hooks/useReferralTracker";
 
 function Router() {
   return (
@@ -25,6 +27,7 @@ function Router() {
       <Route path="/" component={HomeUpdated} />
       <Route path="/browse" component={BrowsePageUpdated} />
       <Route path="/video/:id" component={VideoPage} />
+      <Route path="/rewards" component={RewardsPage} />
 
       {/* Profile */}
       <Route path="/profile" component={ProfilePage} />
@@ -42,6 +45,7 @@ function Router() {
 }
 
 function App() {
+  useReferralTracker();   // ← reads ?ref= from URL and fires click tracking
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>

@@ -1,5 +1,7 @@
+
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { trackReferralRegistration } from "@/hooks/useReferralTracker";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,7 @@ export default function AuthPage() {
     e.preventDefault();
     try {
       await register(registerData.username, registerData.email, registerData.password, registerData.role);
+     await trackReferralRegistration(response.user.id);  // ← add this line
       navigate("/");
     } catch {}
   };

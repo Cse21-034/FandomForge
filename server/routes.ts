@@ -12,6 +12,7 @@ import {
   type AuthenticatedRequest,
 } from "./middleware";
 import Stripe from "stripe";
+import { registerReferralRoutes } from "./referral-routes";
 import { v2 as cloudinary } from "cloudinary";
 import { db } from "./db";
 import { likes, shares, videoViews, videos as videosTable } from "@shared/schema";
@@ -1112,6 +1113,10 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
     }
   );
 
+  registerReferralRoutes(app);
+  
   const httpServer = createServer(app);
+
+  
   return httpServer;
 }
