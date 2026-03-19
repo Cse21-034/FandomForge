@@ -54,8 +54,8 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <PWAInstallBanner />
-            <DownloadPopupBanner />      
-          <DesktopDownloadBanner />   
+          {/* <DownloadPopupBanner />      
+          <DesktopDownloadBanner /> */}  
           <Router />
         </TooltipProvider>
       </ThemeProvider>

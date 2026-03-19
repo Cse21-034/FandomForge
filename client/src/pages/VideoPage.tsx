@@ -124,7 +124,7 @@ export default function VideoPage() {
 
   const handleSubscribe = async () => {
     if (!isAuthenticated) {
-      navigate("/auth");
+      navigate(`/auth?redirect=/video/${videoId}`);
       return;
     }
     setSubscribingInProgress(true);
