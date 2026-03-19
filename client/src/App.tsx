@@ -16,6 +16,8 @@ import ProfilePage from "@/pages/ProfilePage";
 import MessagesPage from "@/pages/MessagesPage";
 import WatchlistPage from "@/pages/WatchlistPage";
 import RewardsPage from "@/pages/RewardsPage";
+import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
+import PaymentCancelPage from "@/pages/PaymentCancelPage";
 import { useReferralTracker } from "@/hooks/useReferralTracker";
 import { DownloadPopupBanner, DesktopDownloadBanner } from "@/components/AppDownloadSection";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
@@ -40,6 +42,10 @@ function Router() {
       <Route path="/consumer/dashboard" component={ConsumerDashboard} />
       <Route path="/messages" component={MessagesPage} />
       <Route path="/watchlist" component={WatchlistPage} />
+
+      {/* Payment */}
+      <Route path="/payment-success" component={PaymentSuccessPage} />
+      <Route path="/payment-cancel" component={PaymentCancelPage} />
 
       {/* 404 */}
       <Route component={NotFound} />

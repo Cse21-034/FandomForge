@@ -15,6 +15,7 @@ import {
   videos,
   subscriptions,
   payments,
+  creatorPayouts,
   categories,
   comments,
   watchlist,
@@ -79,6 +80,15 @@ export interface IStorage {
   getPayment(id: string): Promise<Payment | undefined>;
   getPaymentsByCreatorId(creatorId: string): Promise<Payment[]>;
   updatePayment(id: string, updates: Partial<Payment>): Promise<Payment | undefined>;
+  getCreatorEarnings(creatorId: string): Promise<decimal | null>;
+  getPlatformCommission(startDate?: Date, endDate?: Date): Promise<decimal | null>;
+
+  // Creator Payouts
+  createCreatorPayout(payout: any): Promise<any>;
+  getCreatorPayout(id: string): Promise<any | undefined>;
+  getCreatorPayouts(creatorId: string): Promise<any[]>;
+  updateCreatorPayout(id: string, updates: any): Promise<any | undefined>;
+  getPendingCreatorPayouts(): Promise<any[]>;
 
   // Comments
   createComment(comment: any): Promise<Comment>;
@@ -515,6 +525,80 @@ async getCreatorSubscriptions(creatorId: string): Promise<Subscription[]> {
         )
       );
     return result.length;
+  }
+
+  // Creator Earnings & Commission
+  async getCreatorEarnings(creatorId: string): Promise<any> {
+    const result = await db
+      .select()
+      .from(payments)
+      .where(
+        and(
+          eq(payments.creatorId, creatorId),
+          eq(payments.status, "completed")
+        )
+      );
+    
+    const totalEarnings = result.reduce((sum, payment) => {
+      return sum + parseFloat(payment.creatorEarnings || "0");
+    }, 0);
+    
+    return totalEarnings;
+  }
+
+  async getPlatformCommission(startDate?: Date, endDate?: Date): Promise<any> {
+    let query = db
+      .select()
+      .from(payments)
+      .where(eq(payments.status, "completed"));
+    
+    const result = await query;
+    
+    const totalCommission = result.reduce((sum, payment) => {
+      return sum + parseFloat(payment.platformCommission || "0");
+    }, 0);
+    
+    return totalCommission;
+  }
+
+  // Creator Payouts
+  async createCreatorPayout(payout: any): Promise<any> {
+    const result = await db
+      .insert(creatorPayouts)
+      .values(payout)
+      .returning();
+    return result[0];
+  }
+
+  async getCreatorPayout(id: string): Promise<any | undefined> {
+    const result = await db
+      .select()
+      .from(creatorPayouts)
+      .where(eq(creatorPayouts.id, id));
+    return result[0];
+  }
+
+  async getCreatorPayouts(creatorId: string): Promise<any[]> {
+    return db
+      .select()
+      .from(creatorPayouts)
+      .where(eq(creatorPayouts.creatorId, creatorId));
+  }
+
+  async updateCreatorPayout(id: string, updates: any): Promise<any | undefined> {
+    const result = await db
+      .update(creatorPayouts)
+      .set(updates)
+      .where(eq(creatorPayouts.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getPendingCreatorPayouts(): Promise<any[]> {
+    return db
+      .select()
+      .from(creatorPayouts)
+      .where(eq(creatorPayouts.status, "pending"));
   }
 }
 

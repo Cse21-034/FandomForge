@@ -88,6 +88,9 @@ export const subscriptions = pgTable("subscriptions", {
   creatorId: varchar("creator_id")
     .notNull()
     .references(() => creators.id, { onDelete: "cascade" }),
+  paypalSubscriptionId: text("paypal_subscription_id"),
+  paypalPlanId: text("paypal_plan_id"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   startDate: timestamp("start_date").notNull().default(sql`now()`),
   endDate: timestamp("end_date").notNull(),
   isActive: boolean("is_active").notNull().default(true),
@@ -109,7 +112,24 @@ export const payments = pgTable("payments", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   type: paymentTypeEnum("type").notNull(),
   status: paymentStatusEnum("status").notNull().default("pending"),
-  stripePaymentId: text("stripe_payment_id"),
+  paypalTransactionId: text("paypal_transaction_id"),
+  paypalOrderId: text("paypal_order_id"),
+  creatorEarnings: decimal("creator_earnings", { precision: 10, scale: 2 }).notNull().default("0"),
+  platformCommission: decimal("platform_commission", { precision: 10, scale: 2 }).notNull().default("0"),
+  commissionPercentage: integer("commission_percentage").notNull().default(20),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Creator Payouts Table
+export const creatorPayouts = pgTable("creator_payouts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id")
+    .notNull()
+    .references(() => creators.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: pgEnum("payout_status", ["pending", "processing", "completed", "failed"])("status").notNull().default("pending"),
+  paypalPayoutId: text("paypal_payout_id"),
+  payoutDate: timestamp("payout_date"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -234,6 +254,7 @@ export const insertVideoSchema = createInsertSchema(videos).pick({
 export const insertSubscriptionSchema = createInsertSchema(subscriptions).pick({
   consumerId: true,
   creatorId: true,
+  amount: true,
   endDate: true,
 });
 
@@ -243,6 +264,9 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
   videoId: true,
   amount: true,
   type: true,
+  creatorEarnings: true,
+  platformCommission: true,
+  commissionPercentage: true,
 });
 
 export const insertCommentSchema = createInsertSchema(comments).pick({

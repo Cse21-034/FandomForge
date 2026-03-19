@@ -11,14 +11,20 @@ import {
   requireRole,
   type AuthenticatedRequest,
 } from "./middleware";
-import Stripe from "stripe";
+import PayPalClient from "./paypal";
 import { registerReferralRoutes } from "./referral-routes";
 import { v2 as cloudinary } from "cloudinary";
 import { db } from "./db";
 import { likes, shares, videoViews, videos as videosTable } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+const paypal = new PayPalClient({
+  clientId: process.env.PAYPAL_CLIENT_ID || "",
+  clientSecret: process.env.PAYPAL_CLIENT_SECRET || "",
+  mode: (process.env.PAYPAL_MODE as "sandbox" | "production") || "sandbox",
+  returnUrl: process.env.PAYPAL_RETURN_URL || "http://localhost:5173/payment-success",
+  cancelUrl: process.env.PAYPAL_CANCEL_URL || "http://localhost:5173/payment-cancel",
+});
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -537,25 +543,146 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
     }
   );
 
-  // ==================== PAYMENTS ====================
-  app.post("/api/payments/subscribe", authenticateToken,
+  // ==================== PAYMENTS (PayPal) ====================
+
+  // Create PPV/One-time payment order
+  app.post("/api/payments/create-ppv", authenticateToken,
     async (req: AuthenticatedRequest, res) => {
       try {
-        const { creatorId, priceId } = req.body;
+        const { videoId, creatorId, amount } = req.body;
+        
+        // Validate inputs
+        if (!videoId || !creatorId || !amount) {
+          res.status(400).json({ error: "Missing required fields" });
+          return;
+        }
+
+        const video = await storage.getVideo(videoId);
+        if (!video) {
+          res.status(404).json({ error: "Video not found" });
+          return;
+        }
+
         const creator = await storage.getCreator(creatorId);
-        if (!creator) { res.status(404).json({ error: "Creator not found" }); return; }
-        await stripe.subscriptions.create({
-          customer: req.user!.userId,
-          items: [{ price: priceId }],
+        if (!creator) {
+          res.status(404).json({ error: "Creator not found" });
+          return;
+        }
+
+        // Calculate commission (20% to platform, 80% to creator)
+        const commissionPercentage = 20;
+        const platformCommission = parseFloat(amount) * (commissionPercentage / 100);
+        const creatorEarnings = parseFloat(amount) - platformCommission;
+
+        // Create PayPal order
+        const order = await paypal.createOrder({
+          amount: amount.toString(),
+          currency: "USD",
+          description: `Purchase: ${video.title}`,
+          returnUrl: `${process.env.PAYPAL_RETURN_URL || "http://localhost:5173"}/payment-success?videoId=${videoId}`,
+          cancelUrl: `${process.env.PAYPAL_CANCEL_URL || "http://localhost:5173"}/payment-cancel`,
         });
-        const endDate = new Date();
-        endDate.setMonth(endDate.getMonth() + 1);
-        const dbSubscription = await storage.createSubscription({
+
+        // Store pending payment in DB
+        const payment = await storage.createPayment({
           consumerId: req.user!.userId,
           creatorId,
-          endDate,
+          videoId,
+          amount: amount.toString(),
+          type: "ppv",
+          status: "pending",
+          paypalOrderId: order.id,
+          creatorEarnings: creatorEarnings.toString(),
+          platformCommission: platformCommission.toString(),
+          commissionPercentage,
         });
-        res.status(201).json(dbSubscription);
+
+        res.status(201).json({
+          payment,
+          approvalUrl: order.approval_link,
+        });
+      } catch (error) {
+        console.error("Create PPV payment error:", error);
+        res.status(500).json({ error: "Failed to create payment" });
+      }
+    }
+  );
+
+  // Capture PPV payment after user approves on PayPal
+  app.post("/api/payments/capture-ppv", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { orderId, paymentId } = req.body;
+
+        if (!orderId || !paymentId) {
+          res.status(400).json({ error: "Missing orderId or paymentId" });
+          return;
+        }
+
+        // Verify order with PayPal
+        const orderDetails = await paypal.captureOrder(orderId);
+
+        if (orderDetails.status !== "COMPLETED") {
+          res.status(400).json({ error: "Payment was not completed" });
+          return;
+        }
+
+        // Update payment status to completed
+        const payment = await storage.updatePayment(paymentId, {
+          status: "completed",
+          paypalTransactionId: orderDetails.id,
+        });
+
+        res.json({ success: true, payment });
+      } catch (error) {
+        console.error("Capture PPV payment error:", error);
+        res.status(500).json({ error: "Failed to capture payment" });
+      }
+    }
+  );
+
+  // Create subscription (recurring payment)
+  app.post("/api/payments/create-subscription", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { creatorId } = req.body;
+        const user = await storage.getUser(req.user!.userId);
+        if(!user) {
+          res.status(404).json({ error: "User not found" });
+          return;
+        }
+
+        const creator = await storage.getCreator(creatorId);
+        if (!creator) {
+          res.status(404).json({ error: "Creator not found" });
+          return;
+        }
+
+        const amount = creator.subscriptionPrice || "9.99";
+
+        // Create or use existing PayPal billing plan
+        // For now, creating a new plan each time (in production, you'd cache/reuse)
+        const plan = await paypal.createBillingPlan({
+          name: `${creator.id}-subscription`,
+          description: `Monthly subscription to creator`,
+          amount: amount.toString(),
+          currency: "USD",
+          interval: "MONTH",
+          intervalCount: 1,
+        });
+
+        // Create subscription request
+        const subscription = await paypal.createSubscription({
+          planId: plan.id,
+          email: user.email,
+          name: user.username,
+          returnUrl: `${process.env.PAYPAL_RETURN_URL || "http://localhost:5173"}/subscription-success?creatorId=${creatorId}`,
+          cancelUrl: `${process.env.PAYPAL_CANCEL_URL || "http://localhost:5173"}/subscription-cancel`,
+        });
+
+        res.json({
+          approvalUrl: subscription.approval_link,
+        });
       } catch (error) {
         console.error("Create subscription error:", error);
         res.status(500).json({ error: "Failed to create subscription" });
@@ -563,51 +690,243 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
     }
   );
 
-  app.post("/api/payments/ppv", authenticateToken,
+  // Confirm subscription after user approves on PayPal
+  app.post("/api/payments/confirm-subscription", authenticateToken,
     async (req: AuthenticatedRequest, res) => {
       try {
-        const { videoId, creatorId, amount } = req.body;
-        const video = await storage.getVideo(videoId);
-        if (!video) { res.status(404).json({ error: "Video not found" }); return; }
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(parseFloat(amount) * 100),
-          currency: "usd",
-        });
-        const payment = await storage.createPayment({
+        const { subscriptionId, creatorId } = req.body;
+
+        if (!subscriptionId || !creatorId) {
+          res.status(400).json({ error: "Missing subscriptionId or creatorId" });
+          return;
+        }
+
+        // Get subscription details from PayPal to verify it's active
+        const subDetails = await paypal.getSubscriptionDetails(subscriptionId);
+
+        if (subDetails.status !== "ACTIVE") {
+          res.status(400).json({ error: "Subscription is not active" });
+          return;
+        }
+
+        const creator = await storage.getCreator(creatorId);
+        if (!creator) {
+          res.status(404).json({ error: "Creator not found" });
+          return;
+        }
+
+        // Calculate endDate (1 month from now)
+        const endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + 1);
+
+        // Calculate commission (20% to platform, 80% to creator)
+        const amount = creator.subscriptionPrice || "9.99";
+        const commissionPercentage = 20;
+        const platformCommission = parseFloat(amount) * (commissionPercentage / 100);
+        const creatorEarnings = parseFloat(amount) - platformCommission;
+
+        // Store subscription in DB
+        const dbSubscription = await storage.createSubscription({
           consumerId: req.user!.userId,
           creatorId,
-          videoId,
-          amount: String(parseFloat(String(amount)).toFixed(2)),
-          type: "ppv",
-          stripePaymentId: paymentIntent.id,
+          amount: amount.toString(),
+          paypalSubscriptionId: subscriptionId,
+          paypalPlanId: subDetails.plan_id,
+          endDate,
+          isActive: true,
         });
-        res.status(201).json({ payment, clientSecret: paymentIntent.client_secret });
+
+        // Create initial payment record for this subscription
+        await storage.createPayment({
+          consumerId: req.user!.userId,
+          creatorId,
+          amount: amount.toString(),
+          type: "subscription",
+          status: "completed",
+          paypalTransactionId: subscriptionId,
+          creatorEarnings: creatorEarnings.toString(),
+          platformCommission: platformCommission.toString(),
+          commissionPercentage,
+        });
+
+        res.status(201).json(dbSubscription);
       } catch (error) {
-        console.error("Create payment error:", error);
-        res.status(500).json({ error: "Failed to create payment" });
+        console.error("Confirm subscription error:", error);
+        res.status(500).json({ error: "Failed to confirm subscription" });
       }
     }
   );
 
-  app.post("/api/payments/webhook", async (req, res) => {
-    try {
-      const sig = req.headers["stripe-signature"];
-      const event = stripe.webhooks.constructEvent(
-        JSON.stringify(req.body),
-        sig as string,
-        process.env.STRIPE_WEBHOOK_SECRET || ""
-      );
-      if (event.type === "payment_intent.succeeded") {
-        const paymentIntent = event.data.object as any;
-        const payment = await storage.getPayment(paymentIntent.id);
-        if (payment) await storage.updatePayment(payment.id, { status: "completed" });
+  // Cancel subscription
+  app.post("/api/payments/cancel-subscription/:subscriptionId", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { subscriptionId } = req.params;
+
+        // Cancel with PayPal
+        await paypal.cancelSubscription(subscriptionId, "User canceled subscription");
+
+        // Update DB subscription
+        await storage.updateSubscription(subscriptionId, {
+          isActive: false,
+        });
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Cancel subscription error:", error);
+        res.status(500).json({ error: "Failed to cancel subscription" });
       }
-      res.json({ received: true });
+    }
+  );
+
+  // PayPal webhook endpoint for subscription updates
+  app.post("/api/payments/webhook/paypal", async (req, res) => {
+    try {
+      // In production, verify the webhook signature from PayPal
+      const event = req.body;
+
+      console.log("PayPal webhook event:", event.event_type);
+
+      // Handle different PayPal webhook events
+      if (event.event_type === "BILLING.SUBSCRIPTION.CREATED") {
+        const subscriptionId = event.resource?.id;
+        console.log("Subscription created:", subscriptionId);
+      } else if (event.event_type === "BILLING.SUBSCRIPTION.UPDATED") {
+        const subscriptionId = event.resource?.id;
+        const status = event.resource?.status;
+        console.log("Subscription updated:", subscriptionId, "Status:", status);
+      } else if (event.event_type === "BILLING.SUBSCRIPTION.CANCELLED") {
+        const subscriptionId = event.resource?.id;
+        // Mark subscription as inactive in DB
+        // await storage.updateSubscription(subscriptionId, { isActive: false });
+        console.log("Subscription canceled:", subscriptionId);
+      } else if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
+        // One-time payment completed
+        const orderId = event.resource?.supplementary_data?.related_ids?.order_id;
+        console.log("Payment completed:", orderId);
+        // Update payment status in DB
+      }
+
+      // Always respond with 200 to acknowledge receipt
+      res.json({ acknowledged: true });
     } catch (error) {
-      console.error("Webhook error:", error);
-      res.status(400).json({ error: "Webhook failed" });
+      console.error("PayPal webhook error:", error);
+      // Still return 200 to prevent PayPal from retrying
+      res.status(200).json({ error: "Webhook processed" });
     }
   });
+
+  // Get creator earnings
+  app.get("/api/creator/:creatorId/earnings", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { creatorId } = req.params;
+
+        // Verify the user is the creator
+        const creator = await storage.getCreator(creatorId);
+        if (!creator) {
+          res.status(404).json({ error: "Creator not found" });
+          return;
+        }
+
+        // Get all completed payments for this creator
+        const payments = await storage.getPaymentsByCreatorId(creatorId);
+        const completedPayments = payments.filter((p) => p.status === "completed");
+
+        const totalEarnings = completedPayments.reduce((sum, payment) => {
+          return sum + parseFloat(payment.creatorEarnings || "0");
+        }, 0);
+
+        const paymentBreakdown = {
+          totalEarnings: totalEarnings.toFixed(2),
+          subscriptionEarnings: completedPayments
+            .filter((p) => p.type === "subscription")
+            .reduce((sum, p) => sum + parseFloat(p.creatorEarnings || "0"), 0)
+            .toFixed(2),
+          ppvEarnings: completedPayments
+            .filter((p) => p.type === "ppv")
+            .reduce((sum, p) => sum + parseFloat(p.creatorEarnings || "0"), 0)
+            .toFixed(2),
+          transactionCount: completedPayments.length,
+        };
+
+        res.json(paymentBreakdown);
+      } catch (error) {
+        console.error("Get creator earnings error:", error);
+        res.status(500).json({ error: "Failed to fetch earnings" });
+      }
+    }
+  );
+
+  // Get platform commission (admin only)
+  app.get("/api/admin/commission", authenticateToken, requireRole("admin"),
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const payments = await db.select().from(videosTable);
+        // This is a simplified version - in production, query payments directly
+        res.json({ commission: "0" });
+      } catch (error) {
+        console.error("Get commission error:", error);
+        res.status(500).json({ error: "Failed to fetch commission" });
+      }
+    }
+  );
+
+  // Batch creator payout (admin only)
+  app.post("/api/admin/payouts/batch", authenticateToken, requireRole("admin"),
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        // Get all creators with pending earnings
+        const pendingPayouts = await storage.getPendingCreatorPayouts();
+
+        if (pendingPayouts.length === 0) {
+          res.json({ message: "No pending payouts", processedCount: 0 });
+          return;
+        }
+
+        // Build payout list
+        const payoutItems = [];
+        for (const payout of pendingPayouts) {
+          const creator = await storage.getCreator(payout.creatorId);
+          if (!creator) continue;
+          
+          const user = await storage.getUser(creator.userId);
+          if (!user) continue;
+
+          payoutItems.push({
+            email: user.email,
+            amount: payout.amount.toString(),
+            note: `FandomForge Creator Payout - ${new Date().toLocaleDateString()}`,
+          });
+        }
+
+        if (payoutItems.length === 0) {
+          res.json({ message: "No valid creators to payout", processedCount: 0 });
+          return;
+        }
+
+        // Create PayPal payout batch
+        const batch = await paypal.createPayoutBatch(payoutItems);
+
+        // Update payout statuses
+        for (const payout of pendingPayouts) {
+          await storage.updateCreatorPayout(payout.id, {
+            status: "processing",
+            paypalPayoutId: batch.batch_id,
+          });
+        }
+
+        res.json({
+          message: "Payout batch created",
+          batchId: batch.batch_id,
+          processedCount: pendingPayouts.length,
+        });
+      } catch (error) {
+        console.error("Batch payout error:", error);
+        res.status(500).json({ error: "Failed to create payout batch" });
+      }
+    }
+  );
 
   // ==================== VIDEO ENGAGEMENT (LIKES/SHARES) ====================
   app.post("/api/videos/:videoId/like", authenticateToken, 
@@ -1114,7 +1433,7 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
   );
 
   registerReferralRoutes(app);
-  
+
   const httpServer = createServer(app);
 
   

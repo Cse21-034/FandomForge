@@ -179,8 +179,37 @@ export const subscriptionApi = {
   // silentOn401 so unauthenticated users on video pages don't get redirected
   check: (creatorId: string) =>
     apiRequest(`/subscriptions/check/${creatorId}`, { silentOn401: true }),
-  subscribe: (creatorId: string, priceId: string) =>
-    apiRequest("/payments/subscribe", { method: "POST", body: { creatorId, priceId } }),
+};
+
+// ── Payment endpoints (PayPal) ──────────────────────────────────────
+export const paymentApi = {
+  // PPV (One-time payment)
+  createPPVOrder: (videoId: string, creatorId: string, amount: string) =>
+    apiRequest("/payments/create-ppv", { method: "POST", body: { videoId, creatorId, amount } }),
+
+  capturePPVOrder: (orderId: string, paymentId: string) =>
+    apiRequest("/payments/capture-ppv", { method: "POST", body: { orderId, paymentId } }),
+
+  // Subscriptions
+  createSubscription: (creatorId: string) =>
+    apiRequest("/payments/create-subscription", { method: "POST", body: { creatorId } }),
+
+  confirmSubscription: (subscriptionId: string, creatorId: string) =>
+    apiRequest("/payments/confirm-subscription", { method: "POST", body: { subscriptionId, creatorId } }),
+
+  cancelSubscription: (subscriptionId: string) =>
+    apiRequest(`/payments/cancel-subscription/${subscriptionId}`, { method: "POST" }),
+
+  // Creator Earnings
+  getCreatorEarnings: (creatorId: string) =>
+    apiRequest(`/creator/${creatorId}/earnings`, { silentOn401: true }),
+
+  // Admin
+  getCommission: () =>
+    apiRequest("/admin/commission"),
+
+  batchPayout: () =>
+    apiRequest("/admin/payouts/batch", { method: "POST" }),
 };
 
 // ── Engagement endpoints ────────────────────────────────────────────
@@ -196,12 +225,6 @@ export const engagementApi = {
     apiRequest(`/videos/${videoId}/share`, { method: "POST" }),
   trackView: (videoId: string) =>
     apiRequest(`/videos/${videoId}/view`, { method: "POST", silentOn401: true }),
-};
-
-// ── Payment endpoints ───────────────────────────────────────────────
-export const paymentApi = {
-  createPPV: (videoId: string, creatorId: string, amount: string) =>
-    apiRequest("/payments/ppv", { method: "POST", body: { videoId, creatorId, amount } }),
 };
 
 // ── Category endpoints ──────────────────────────────────────────────
