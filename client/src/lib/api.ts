@@ -1,6 +1,5 @@
 // =====================================================================
-// This is the COMPLETE updated client/src/lib/api.ts
-// Adds profileApi with updateProfile, uploadProfileImage, updateCreatorSettings
+// client/src/lib/api.ts  — FIXED: 401 no longer hard-redirects to /
 // =====================================================================
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -9,6 +8,9 @@ interface ApiRequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   body?: any;
   headers?: Record<string, string>;
+  // If true, a 401 will throw an error instead of redirecting to /
+  // Use this for endpoints where auth is optional
+  silentOn401?: boolean;
 }
 
 function getAuthToken(): string | null {
@@ -40,8 +42,16 @@ async function apiRequest(endpoint: string, options: ApiRequestOptions = {}): Pr
   });
 
   if (response.status === 401) {
-    clearAuthToken();
-    window.location.href = "/";
+    // Only hard-redirect if the user had a token (i.e. session expired)
+    // Don't redirect unauthenticated users who are just browsing
+    if (token && !options.silentOn401) {
+      clearAuthToken();
+      window.location.href = "/";
+      return;
+    }
+    // For requests without a token (or silentOn401), throw so callers can handle gracefully
+    const data = await response.json().catch(() => ({ error: "Unauthorized" }));
+    throw new Error(data.error || "Unauthorized");
   }
 
   const data = await response.json();
@@ -70,15 +80,12 @@ export const authApi = {
 
 // ── Profile endpoints ───────────────────────────────────────────────
 export const profileApi = {
-  /** Update username and/or bio */
   updateProfile: (data: { username?: string; bio?: string }) =>
     apiRequest("/auth/profile", { method: "PUT", body: data }),
 
-  /** Save Cloudinary URL to user's profileImage in DB */
   updateProfileImage: (profileImageUrl: string) =>
     apiRequest("/auth/profile/image", { method: "PUT", body: { profileImageUrl } }),
 
-  /** Upload image directly to Cloudinary from browser, returns secure_url */
   uploadImageToCloudinary: async (file: File): Promise<string> => {
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     if (!cloudName || cloudName === "your_cloud_name") {
@@ -104,7 +111,6 @@ export const profileApi = {
     return result.secure_url as string;
   },
 
-  /** Update creator-specific settings (subscription price, banner) */
   updateCreatorSettings: (data: { subscriptionPrice?: number; bannerImage?: string }) =>
     apiRequest("/auth/creator-settings", { method: "PUT", body: data }),
 };
@@ -170,23 +176,26 @@ export const videoApi = {
 // ── Subscription endpoints ──────────────────────────────────────────
 export const subscriptionApi = {
   getAll: () => apiRequest("/subscriptions"),
-  check: (creatorId: string) => apiRequest(`/subscriptions/check/${creatorId}`),
+  // silentOn401 so unauthenticated users on video pages don't get redirected
+  check: (creatorId: string) =>
+    apiRequest(`/subscriptions/check/${creatorId}`, { silentOn401: true }),
   subscribe: (creatorId: string, priceId: string) =>
     apiRequest("/payments/subscribe", { method: "POST", body: { creatorId, priceId } }),
 };
 
 // ── Engagement endpoints ────────────────────────────────────────────
 export const engagementApi = {
+  // silentOn401 so unauthenticated users browsing videos aren't kicked to /
   like: (videoId: string) =>
     apiRequest(`/videos/${videoId}/like`, { method: "POST" }),
   unlike: (videoId: string) =>
     apiRequest(`/videos/${videoId}/like`, { method: "DELETE" }),
   isLiked: (videoId: string) =>
-    apiRequest(`/videos/${videoId}/like`),
+    apiRequest(`/videos/${videoId}/like`, { silentOn401: true }),
   share: (videoId: string) =>
     apiRequest(`/videos/${videoId}/share`, { method: "POST" }),
   trackView: (videoId: string) =>
-    apiRequest(`/videos/${videoId}/view`, { method: "POST" }),
+    apiRequest(`/videos/${videoId}/view`, { method: "POST", silentOn401: true }),
 };
 
 // ── Payment endpoints ───────────────────────────────────────────────
@@ -217,7 +226,8 @@ export const watchlistApi = {
   remove: (videoId: string) =>
     apiRequest(`/watchlist/${videoId}`, { method: "DELETE" }),
   getAll: () => apiRequest("/watchlist"),
-  check: (videoId: string) => apiRequest(`/watchlist/check/${videoId}`),
+  check: (videoId: string) =>
+    apiRequest(`/watchlist/check/${videoId}`, { silentOn401: true }),
 };
 
 // ── Notifications endpoints ─────────────────────────────────────────
@@ -240,47 +250,35 @@ export const messageApi = {
     apiRequest(`/messages/${messageId}/read`, { method: "PATCH" }),
 };
 
-// =====================================================================
-// Paste this block at the BOTTOM of client/src/lib/api.ts
-// =====================================================================
-
 // ── Referral / Rewards API ────────────────────────────────────────────
 export const referralApi = {
-  /** Get or create the user's referral code + pre-built share links */
   getCode: () =>
     apiRequest("/referral/code"),
 
-  /** Full stats: clicks, registrations, balance, recent events */
   getStats: () =>
     apiRequest("/referral/stats"),
 
-  /** Quick balance + estimatedUsd */
   getBalance: () =>
     apiRequest("/referral/balance"),
 
-  /** Points ledger (last 50 transactions) */
   getHistory: () =>
     apiRequest("/referral/history"),
 
-  /** Public top-20 leaderboard */
   getLeaderboard: () =>
     apiRequest("/referral/leaderboard"),
 
-  /** Track a referral link click — no auth needed */
   trackClick: (code: string) =>
     apiRequest("/referral/track-click", {
       method: "POST",
       body: { code },
     }),
 
-  /** Credit referrer after new user signs up */
   trackRegistration: (code: string, newUserId: string) =>
     apiRequest("/referral/track-registration", {
       method: "POST",
       body: { code, newUserId },
     }),
 
-  /** Request a cash withdrawal */
   withdraw: (data: {
     pointsAmount:   number;
     paymentMethod:  string;
@@ -288,11 +286,9 @@ export const referralApi = {
   }) =>
     apiRequest("/referral/withdraw", { method: "POST", body: data }),
 
-  /** List the user's past withdrawal requests */
   getWithdrawals: () =>
     apiRequest("/referral/withdrawals"),
 
-  /** Spend points to unlock a premium video */
   usePointsForVideo: (videoId: string, pointsCost: number) =>
     apiRequest("/referral/use-points", {
       method: "POST",
