@@ -16,6 +16,7 @@ import MessagesPage from "@/pages/MessagesPage";
 import WatchlistPage from "@/pages/WatchlistPage";
 import RewardsPage from "@/pages/RewardsPage";
 import { useReferralTracker } from "@/hooks/useReferralTracker";
+import { DownloadPopupBanner, DesktopDownloadBanner } from "@/components/AppDownloadSection";
 
 function Router() {
   return (
@@ -51,6 +52,8 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <Toaster />
+            <DownloadPopupBanner />      
+          <DesktopDownloadBanner />   
           <Router />
         </TooltipProvider>
       </ThemeProvider>

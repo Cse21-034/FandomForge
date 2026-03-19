@@ -7,6 +7,7 @@ import { AffiliateCard, AffiliateStrip } from "@/components/AffiliateCard";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { Play, Zap, Shield, TrendingUp, ArrowRight, Sparkles } from "lucide-react";
+import { AppDownloadSection } from "@/components/AppDownloadSection";
 
 function VideoSkeleton() {
   return (
@@ -260,6 +261,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <AppDownloadSection />
 
       {/* ── CTA ── */}
       {!isAuthenticated && (
