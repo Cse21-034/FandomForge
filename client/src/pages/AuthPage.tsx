@@ -26,13 +26,18 @@ export default function AuthPage() {
   };
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await register(registerData.username, registerData.email, registerData.password, registerData.role);
-     await trackReferralRegistration(response.user.id);  // ← add this line
-      navigate("/");
-    } catch {}
-  };
+  e.preventDefault();
+  try {
+    const response = await register(
+      registerData.username,
+      registerData.email,
+      registerData.password,
+      registerData.role
+    );
+    await trackReferralRegistration(response.user.id);
+    navigate("/");
+  } catch {}
+};
 
   return (
     <div className="auth-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
