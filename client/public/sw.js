@@ -33,8 +33,10 @@ self.addEventListener("fetch", e => {
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
+        // ✅ clone BEFORE anything else touches the body
         if (e.request.method === "GET" && res.status === 200) {
-          caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+          const toCache = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, toCache));
         }
         return res;
       });
