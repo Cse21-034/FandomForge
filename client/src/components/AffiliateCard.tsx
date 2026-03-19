@@ -53,67 +53,17 @@ export const AFFILIATE_OFFERS: AffiliateOffer[] = [
   },
 ];
 
-// Alternates between two on-brand combos:
-//  A) black bg + pink gradient CTA button  (dark/bold)
-//  B) pink gradient bg + black/white text  (vivid/bright)
-// This keeps every card visually distinct without leaving the site palette.
+// All banners use the same pink-to-black diagonal gradient — matching the site theme exactly.
+const STYLE = {
+  card: "background:linear-gradient(135deg,hsl(340,90%,50%) 0%,#0a0a0a 100%); border:none;",
+  badge: "background:rgba(255,255,255,0.15); color:#fff;",
+  headline: "color:#ffffff;",
+  subtext: "color:rgba(255,255,255,0.65);",
+  cta: "background:rgba(255,255,255,0.15); color:#fff;",
+  icon: "background:rgba(255,255,255,0.12); color:#fff;",
+};
 
-const STYLES = [
-  // A — black card, pink CTA
-  {
-    card: "background:#0a0a0a; border:1px solid rgba(255,255,255,0.08);",
-    badge: "background:rgba(236,72,153,0.18); color:#f472b6;",
-    headline: "color:#ffffff;",
-    subtext: "color:rgba(255,255,255,0.55);",
-    cta: "background:linear-gradient(135deg,hsl(350,100%,65%),hsl(320,80%,58%)); color:#fff;",
-    icon: "background:rgba(236,72,153,0.15); color:#f472b6;",
-  },
-  // B — pink gradient card, black/white text
-  {
-    card: "background:linear-gradient(135deg,hsl(350,100%,60%),hsl(320,80%,52%)); border:none;",
-    badge: "background:rgba(0,0,0,0.25); color:#fff;",
-    headline: "color:#ffffff;",
-    subtext: "color:rgba(255,255,255,0.80);",
-    cta: "background:rgba(0,0,0,0.30); color:#fff;",
-    icon: "background:rgba(0,0,0,0.20); color:#fff;",
-  },
-  // C — deep black with hot-pink border accent
-  {
-    card: "background:#0f0f0f; border:1px solid hsl(340,80%,55%);",
-    badge: "background:rgba(236,72,153,0.18); color:#f472b6;",
-    headline: "color:#ffffff;",
-    subtext: "color:rgba(255,255,255,0.55);",
-    cta: "background:linear-gradient(135deg,hsl(350,100%,65%),hsl(320,80%,58%)); color:#fff;",
-    icon: "background:rgba(236,72,153,0.12); color:#f472b6;",
-  },
-  // D — white card with pink accents (pops in dark mode sections)
-  {
-    card: "background:#ffffff; border:1px solid rgba(0,0,0,0.08);",
-    badge: "background:hsl(340,80%,95%); color:hsl(340,80%,40%);",
-    headline: "color:#0a0a0a;",
-    subtext: "color:rgba(0,0,0,0.55);",
-    cta: "background:linear-gradient(135deg,hsl(350,100%,60%),hsl(320,80%,52%)); color:#fff;",
-    icon: "background:hsl(340,80%,95%); color:hsl(340,70%,50%);",
-  },
-  // E — black card, white CTA (clean minimal)
-  {
-    card: "background:#0a0a0a; border:1px solid rgba(255,255,255,0.10);",
-    badge: "background:rgba(255,255,255,0.10); color:rgba(255,255,255,0.70);",
-    headline: "color:#ffffff;",
-    subtext: "color:rgba(255,255,255,0.50);",
-    cta: "background:#ffffff; color:#0a0a0a;",
-    icon: "background:rgba(255,255,255,0.10); color:#ffffff;",
-  },
-  // F — pink-to-black gradient (dramatic)
-  {
-    card: "background:linear-gradient(135deg,hsl(340,90%,50%) 0%,#0a0a0a 100%); border:none;",
-    badge: "background:rgba(255,255,255,0.15); color:#fff;",
-    headline: "color:#ffffff;",
-    subtext: "color:rgba(255,255,255,0.70);",
-    cta: "background:rgba(255,255,255,0.15); color:#fff;",
-    icon: "background:rgba(255,255,255,0.12); color:#fff;",
-  },
-];
+const STYLES = [STYLE, STYLE, STYLE, STYLE, STYLE, STYLE];
 
 interface AffiliateCardProps {
   slotIndex: number;
