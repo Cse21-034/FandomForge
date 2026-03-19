@@ -6,7 +6,6 @@ export interface AffiliateOffer {
   headline: string;
   subtext: string;
   cta: string;
-  accentColor: string;
 }
 
 export const AFFILIATE_OFFERS: AffiliateOffer[] = [
@@ -14,50 +13,53 @@ export const AFFILIATE_OFFERS: AffiliateOffer[] = [
     id: 0,
     url: "https://track.deriv.com/_-1DpJjc-4Uhi-DaPcIu1xGNd7ZgqdRLk/1/",
     headline: "Trade forex, crypto & more",
-    subtext: "Deriv — regulated trading platform active since 1999. Free demo account, no hidden fees.",
+    subtext: "Regulated since 1999 · Free demo · No hidden fees",
     cta: "Start trading",
-    accentColor: "hsl(262 80% 58%)",
   },
   {
     id: 1,
     url: "https://track.deriv.com/_-1DpJjc-4UgmbEDB3Xr5-mNd7ZgqdRLk/1/",
     headline: "Bitcoin, gold & silver — trade it all",
-    subtext: "Deriv offers CFDs and options on 100+ assets. Open a free account in minutes.",
+    subtext: "CFDs & options on 100+ assets · Open a free account",
     cta: "Open free account",
-    accentColor: "hsl(38 90% 48%)",
   },
   {
     id: 2,
     url: "https://track.deriv.com/_-1DpJjc-4UjRl-w_1a-yN2Nd7ZgqdRLk/1/",
     headline: "Earn from the markets you follow",
-    subtext: "Deriv lets you trade forex, indices and crypto — even as a complete beginner.",
+    subtext: "Forex, indices and crypto · Perfect for beginners",
     cta: "Try for free",
-    accentColor: "hsl(220 70% 52%)",
   },
   {
     id: 3,
     url: "https://track.deriv.com/_-1DpJjc-4UgaV8y6i5dK8WNd7ZgqdRLk/1/",
     headline: "No-deposit demo account",
-    subtext: "Practice trading risk-free on Deriv. Switch to real money when you're ready.",
+    subtext: "Practice risk-free · Switch to real money anytime",
     cta: "Get demo account",
-    accentColor: "hsl(172 60% 40%)",
   },
   {
     id: 4,
     url: "https://track.deriv.com/_-1DpJjc-4UhlpmjG3vKHHGNd7ZgqdRLk/1/",
     headline: "Trade smarter with Deriv",
-    subtext: "Advanced charts, 24/7 synthetic markets, and instant withdrawals. Trusted by millions.",
+    subtext: "Advanced charts · 24/7 markets · Instant withdrawals",
     cta: "See the platform",
-    accentColor: "hsl(340 65% 52%)",
   },
   {
     id: 5,
     url: "https://track.deriv.com/_-1DpJjc-4UjT7xUfR9r0QGNd7ZgqdRLk/1/",
     headline: "Forex & CFDs — start with $5",
-    subtext: "Deriv has one of the lowest minimum deposits in the industry. Zero hidden fees.",
+    subtext: "Lowest minimum deposit in the industry · Zero hidden fees",
     cta: "Start with $5",
-    accentColor: "hsl(145 55% 40%)",
   },
+];
+
+const GRADIENTS = [
+  "linear-gradient(135deg, hsl(262,80%,52%), hsl(220,80%,58%))",
+  "linear-gradient(135deg, hsl(28,90%,48%), hsl(38,95%,52%))",
+  "linear-gradient(135deg, hsl(172,60%,36%), hsl(195,70%,42%))",
+  "linear-gradient(135deg, hsl(340,70%,48%), hsl(310,65%,52%))",
+  "linear-gradient(135deg, hsl(220,75%,48%), hsl(240,80%,55%))",
+  "linear-gradient(135deg, hsl(145,55%,36%), hsl(165,60%,40%))",
 ];
 
 interface AffiliateCardProps {
@@ -72,45 +74,33 @@ export function AffiliateCard({
   className = "",
 }: AffiliateCardProps) {
   const offer = AFFILIATE_OFFERS[slotIndex % AFFILIATE_OFFERS.length];
-  const trackingUrl = offer.url;
+  const gradient = GRADIENTS[slotIndex % GRADIENTS.length];
 
   if (variant === "sidebar") {
     return (
       <a
-        href={trackingUrl}
+        href={offer.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`block rounded-xl border border-border/50 bg-card p-4 hover:border-border transition-colors group ${className}`}
-        style={{ textDecoration: "none" }}
+        className={`block rounded-2xl p-4 group transition-opacity hover:opacity-90 ${className}`}
+        style={{ background: gradient, textDecoration: "none" }}
       >
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{
-              background: `${offer.accentColor}18`,
-              color: offer.accentColor,
-            }}
-          >
-            Sponsored
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white">
+            Sponsored · Deriv
           </span>
-          <ExternalLink
-            size={12}
-            className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 shrink-0"
-          />
+          <ExternalLink size={12} className="text-white/60 group-hover:text-white transition-colors" />
         </div>
-        <p className="text-sm font-semibold text-foreground leading-snug mb-1">
+        <p className="text-sm font-bold text-white leading-snug mb-1">
           {offer.headline}
         </p>
-        <p className="text-xs text-muted-foreground leading-relaxed mb-2">
+        <p className="text-xs text-white/75 leading-relaxed mb-3">
           {offer.subtext}
         </p>
-        <span
-          className="text-xs font-medium"
-          style={{ color: offer.accentColor }}
-        >
+        <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-xl bg-white/20 text-white group-hover:bg-white/30 transition-colors">
           {offer.cta} →
         </span>
-        <p className="text-[10px] text-muted-foreground/50 mt-2 leading-tight">
+        <p className="text-[10px] text-white/40 mt-3 leading-tight">
           CFDs carry risk. Your capital is at risk.
         </p>
       </a>
@@ -120,39 +110,27 @@ export function AffiliateCard({
   if (variant === "inline") {
     return (
       <a
-        href={trackingUrl}
+        href={offer.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`flex flex-col rounded-xl border border-border/50 bg-card p-4 hover:border-border transition-colors group aspect-video justify-between ${className}`}
-        style={{ textDecoration: "none" }}
+        className={`flex flex-col rounded-2xl p-4 group aspect-video justify-between transition-opacity hover:opacity-90 ${className}`}
+        style={{ background: gradient, textDecoration: "none" }}
       >
         <div className="flex items-center justify-between">
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{
-              background: `${offer.accentColor}18`,
-              color: offer.accentColor,
-            }}
-          >
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white">
             Sponsored
           </span>
-          <ExternalLink
-            size={12}
-            className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-          />
+          <ExternalLink size={12} className="text-white/60 group-hover:text-white transition-colors" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground leading-snug mb-1">
+          <p className="text-sm font-bold text-white leading-snug mb-1">
             {offer.headline}
           </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-xs text-white/75 leading-relaxed">
             {offer.subtext}
           </p>
         </div>
-        <span
-          className="text-xs font-medium"
-          style={{ color: offer.accentColor }}
-        >
+        <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-xl bg-white/20 text-white self-start group-hover:bg-white/30 transition-colors">
           {offer.cta} →
         </span>
       </a>
@@ -162,34 +140,25 @@ export function AffiliateCard({
   if (variant === "strip") {
     return (
       <a
-        href={trackingUrl}
+        href={offer.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`flex items-center gap-4 rounded-xl border border-border/50 bg-card px-5 py-3 hover:border-border transition-colors group shrink-0 w-72 ${className}`}
-        style={{ textDecoration: "none" }}
+        className={`flex items-center gap-4 rounded-2xl px-5 py-3.5 group shrink-0 w-72 transition-opacity hover:opacity-90 ${className}`}
+        style={{ background: gradient, textDecoration: "none" }}
       >
-        <div
-          className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center"
-          style={{ background: `${offer.accentColor}20` }}
-        >
-          <div
-            className="w-3 h-3 rounded-sm"
-            style={{ background: offer.accentColor }}
-          />
+        <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center bg-white/20">
+          <ExternalLink size={16} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">
+          <p className="text-sm font-bold text-white truncate">
             {offer.headline}
           </p>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-xs text-white/70 truncate">
             {offer.subtext}
           </p>
         </div>
-        <span
-          className="text-xs font-medium shrink-0"
-          style={{ color: offer.accentColor }}
-        >
-          {offer.cta} →
+        <span className="text-xs font-bold text-white shrink-0 px-3 py-1.5 rounded-xl bg-white/20 group-hover:bg-white/30 transition-colors whitespace-nowrap">
+          {offer.cta}
         </span>
       </a>
     );
@@ -198,42 +167,30 @@ export function AffiliateCard({
   // Default: banner (full-width)
   return (
     <a
-      href={trackingUrl}
+      href={offer.url}
       target="_blank"
       rel="noopener noreferrer sponsored"
-      className={`flex items-center gap-4 rounded-xl border border-border/50 bg-card px-5 py-4 hover:border-border transition-colors group w-full ${className}`}
-      style={{ textDecoration: "none" }}
+      className={`flex items-center gap-4 rounded-2xl px-5 py-4 group w-full transition-opacity hover:opacity-90 ${className}`}
+      style={{ background: gradient, textDecoration: "none" }}
     >
-      <div
-        className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
-        style={{ background: `${offer.accentColor}18` }}
-      >
-        <div
-          className="w-4 h-4 rounded"
-          style={{ background: offer.accentColor }}
-        />
+      {/* Icon blob */}
+      <div className="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center bg-white/20">
+        <ExternalLink size={18} className="text-white" />
       </div>
+
+      {/* Text */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <p className="text-sm font-semibold text-foreground">
-            {offer.headline}
-          </p>
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{
-              background: `${offer.accentColor}15`,
-              color: offer.accentColor,
-            }}
-          >
-            Sponsored
+          <p className="text-sm font-bold text-white">{offer.headline}</p>
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white hidden sm:inline">
+            Sponsored · Deriv
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">{offer.subtext}</p>
+        <p className="text-xs text-white/75">{offer.subtext}</p>
       </div>
-      <span
-        className="text-sm font-medium shrink-0 flex items-center gap-1.5 group-hover:gap-2.5 transition-all"
-        style={{ color: offer.accentColor }}
-      >
+
+      {/* CTA button */}
+      <span className="text-sm font-bold shrink-0 px-4 py-2 rounded-xl bg-white/20 text-white group-hover:bg-white/30 transition-colors whitespace-nowrap flex items-center gap-1.5">
         {offer.cta}
         <ExternalLink size={13} />
       </span>
