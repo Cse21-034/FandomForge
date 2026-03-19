@@ -146,47 +146,13 @@ function DownloadBtn({
 // ─────────────────────────────────────────────────────────────────────
 function QRPlaceholder({ size = 120 }: { size?: number }) {
   return (
-    <div
-      style={{
-        width: size, height: size,
-        background: "#fff",
-        borderRadius: 16,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        padding: 10,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-        flexShrink: 0,
-      }}
-    >
-      {/* Replace this img with your real QR code image */}
-      {/* <img src="/qr-code.png" alt="QR Code" style={{ width:"100%", height:"100%", objectFit:"contain" }} /> */}
-
-      {/* Placeholder grid that looks like a QR code */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, width: "100%" }}>
-        {Array.from({ length: 49 }).map((_, i) => {
-          const isCorner =
-            (i < 7 && (i < 3 || i > 3)) ||
-            (i >= 42 && (i < 46 || i > 46)) ||
-            ((i === 0 || i === 6 || i === 7 || i === 13 || i === 14 || i === 20) && i < 21) ||
-            (i % 7 === 0 && i >= 0 && i <= 42) || (i % 7 === 6 && i >= 0 && i <= 42);
-          const filled = isCorner || Math.random() > 0.5;
-          return (
-            <div
-              key={i}
-              style={{
-                width: "100%",
-                paddingBottom: "100%",
-                background: filled ? "#1a1a1a" : "transparent",
-                borderRadius: 1,
-              }}
-            />
-          );
-        })}
-      </div>
-      <p style={{ fontSize: 8, color: "#666", fontWeight: 600, letterSpacing: 0.5 }}>SCAN TO DOWNLOAD</p>
+    <div style={{ width:size, height:size, borderRadius:16, overflow:"hidden",
+      boxShadow:"0 4px 20px rgba(0,0,0,0.15)", flexShrink:0, background:"#fff", padding:8 }}>
+      <img
+        src="/qr-code.png"
+        alt="Scan to install FandomForge"
+        style={{ width:"100%", height:"100%", objectFit:"contain" }}
+      />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import WatchlistPage from "@/pages/WatchlistPage";
 import RewardsPage from "@/pages/RewardsPage";
 import { useReferralTracker } from "@/hooks/useReferralTracker";
 import { DownloadPopupBanner, DesktopDownloadBanner } from "@/components/AppDownloadSection";
+import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 
 function Router() {
   return (
@@ -52,6 +53,7 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <Toaster />
+          <PWAInstallBanner />
             <DownloadPopupBanner />      
           <DesktopDownloadBanner />   
           <Router />
