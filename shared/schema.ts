@@ -24,6 +24,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "new_message",
   "subscription_expiring",
 ]);
+export const payoutStatusEnum = pgEnum("payout_status", ["pending", "processing", "completed", "failed"]);
 
 // Users Table
 export const users = pgTable("users", {
@@ -127,7 +128,7 @@ export const creatorPayouts = pgTable("creator_payouts", {
     .notNull()
     .references(() => creators.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  status: pgEnum("payout_status", ["pending", "processing", "completed", "failed"])("status").notNull().default("pending"),
+  status: payoutStatusEnum("status").notNull().default("pending"),
   paypalPayoutId: text("paypal_payout_id"),
   payoutDate: timestamp("payout_date"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
