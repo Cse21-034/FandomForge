@@ -48,18 +48,71 @@ export const AFFILIATE_OFFERS: AffiliateOffer[] = [
     id: 5,
     url: "https://track.deriv.com/_-1DpJjc-4UjT7xUfR9r0QGNd7ZgqdRLk/1/",
     headline: "Forex & CFDs — start with $5",
-    subtext: "Lowest minimum deposit in the industry · Zero hidden fees",
+    subtext: "Lowest minimum deposit · Zero hidden fees",
     cta: "Start with $5",
   },
 ];
 
-const GRADIENTS = [
-  "linear-gradient(135deg, hsl(262,80%,52%), hsl(220,80%,58%))",
-  "linear-gradient(135deg, hsl(28,90%,48%), hsl(38,95%,52%))",
-  "linear-gradient(135deg, hsl(172,60%,36%), hsl(195,70%,42%))",
-  "linear-gradient(135deg, hsl(340,70%,48%), hsl(310,65%,52%))",
-  "linear-gradient(135deg, hsl(220,75%,48%), hsl(240,80%,55%))",
-  "linear-gradient(135deg, hsl(145,55%,36%), hsl(165,60%,40%))",
+// Alternates between two on-brand combos:
+//  A) black bg + pink gradient CTA button  (dark/bold)
+//  B) pink gradient bg + black/white text  (vivid/bright)
+// This keeps every card visually distinct without leaving the site palette.
+
+const STYLES = [
+  // A — black card, pink CTA
+  {
+    card: "background:#0a0a0a; border:1px solid rgba(255,255,255,0.08);",
+    badge: "background:rgba(236,72,153,0.18); color:#f472b6;",
+    headline: "color:#ffffff;",
+    subtext: "color:rgba(255,255,255,0.55);",
+    cta: "background:linear-gradient(135deg,hsl(350,100%,65%),hsl(320,80%,58%)); color:#fff;",
+    icon: "background:rgba(236,72,153,0.15); color:#f472b6;",
+  },
+  // B — pink gradient card, black/white text
+  {
+    card: "background:linear-gradient(135deg,hsl(350,100%,60%),hsl(320,80%,52%)); border:none;",
+    badge: "background:rgba(0,0,0,0.25); color:#fff;",
+    headline: "color:#ffffff;",
+    subtext: "color:rgba(255,255,255,0.80);",
+    cta: "background:rgba(0,0,0,0.30); color:#fff;",
+    icon: "background:rgba(0,0,0,0.20); color:#fff;",
+  },
+  // C — deep black with hot-pink border accent
+  {
+    card: "background:#0f0f0f; border:1px solid hsl(340,80%,55%);",
+    badge: "background:rgba(236,72,153,0.18); color:#f472b6;",
+    headline: "color:#ffffff;",
+    subtext: "color:rgba(255,255,255,0.55);",
+    cta: "background:linear-gradient(135deg,hsl(350,100%,65%),hsl(320,80%,58%)); color:#fff;",
+    icon: "background:rgba(236,72,153,0.12); color:#f472b6;",
+  },
+  // D — white card with pink accents (pops in dark mode sections)
+  {
+    card: "background:#ffffff; border:1px solid rgba(0,0,0,0.08);",
+    badge: "background:hsl(340,80%,95%); color:hsl(340,80%,40%);",
+    headline: "color:#0a0a0a;",
+    subtext: "color:rgba(0,0,0,0.55);",
+    cta: "background:linear-gradient(135deg,hsl(350,100%,60%),hsl(320,80%,52%)); color:#fff;",
+    icon: "background:hsl(340,80%,95%); color:hsl(340,70%,50%);",
+  },
+  // E — black card, white CTA (clean minimal)
+  {
+    card: "background:#0a0a0a; border:1px solid rgba(255,255,255,0.10);",
+    badge: "background:rgba(255,255,255,0.10); color:rgba(255,255,255,0.70);",
+    headline: "color:#ffffff;",
+    subtext: "color:rgba(255,255,255,0.50);",
+    cta: "background:#ffffff; color:#0a0a0a;",
+    icon: "background:rgba(255,255,255,0.10); color:#ffffff;",
+  },
+  // F — pink-to-black gradient (dramatic)
+  {
+    card: "background:linear-gradient(135deg,hsl(340,90%,50%) 0%,#0a0a0a 100%); border:none;",
+    badge: "background:rgba(255,255,255,0.15); color:#fff;",
+    headline: "color:#ffffff;",
+    subtext: "color:rgba(255,255,255,0.70);",
+    cta: "background:rgba(255,255,255,0.15); color:#fff;",
+    icon: "background:rgba(255,255,255,0.12); color:#fff;",
+  },
 ];
 
 interface AffiliateCardProps {
@@ -74,7 +127,7 @@ export function AffiliateCard({
   className = "",
 }: AffiliateCardProps) {
   const offer = AFFILIATE_OFFERS[slotIndex % AFFILIATE_OFFERS.length];
-  const gradient = GRADIENTS[slotIndex % GRADIENTS.length];
+  const s = STYLES[slotIndex % STYLES.length];
 
   if (variant === "sidebar") {
     return (
@@ -82,25 +135,28 @@ export function AffiliateCard({
         href={offer.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`block rounded-2xl p-4 group transition-opacity hover:opacity-90 ${className}`}
-        style={{ background: gradient, textDecoration: "none" }}
+        className={`block rounded-2xl p-4 group transition-all hover:scale-[1.01] hover:shadow-lg ${className}`}
+        style={{ textDecoration: "none", ...parseStyle(s.card) }}
       >
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white">
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
+            style={parseStyle(s.badge)}>
             Sponsored · Deriv
           </span>
-          <ExternalLink size={12} className="text-white/60 group-hover:text-white transition-colors" />
+          <ExternalLink size={12} className="opacity-40 group-hover:opacity-80 transition-opacity"
+            style={{ color: parseStyle(s.headline).color }} />
         </div>
-        <p className="text-sm font-bold text-white leading-snug mb-1">
+        <p className="text-sm font-bold leading-snug mb-1" style={parseStyle(s.headline)}>
           {offer.headline}
         </p>
-        <p className="text-xs text-white/75 leading-relaxed mb-3">
+        <p className="text-xs leading-relaxed mb-3" style={parseStyle(s.subtext)}>
           {offer.subtext}
         </p>
-        <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-xl bg-white/20 text-white group-hover:bg-white/30 transition-colors">
+        <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-xl transition-opacity group-hover:opacity-90"
+          style={parseStyle(s.cta)}>
           {offer.cta} →
         </span>
-        <p className="text-[10px] text-white/40 mt-3 leading-tight">
+        <p className="text-[10px] mt-3 leading-tight opacity-30" style={parseStyle(s.headline)}>
           CFDs carry risk. Your capital is at risk.
         </p>
       </a>
@@ -113,24 +169,27 @@ export function AffiliateCard({
         href={offer.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`flex flex-col rounded-2xl p-4 group aspect-video justify-between transition-opacity hover:opacity-90 ${className}`}
-        style={{ background: gradient, textDecoration: "none" }}
+        className={`flex flex-col rounded-2xl p-4 group aspect-video justify-between transition-all hover:scale-[1.02] hover:shadow-lg ${className}`}
+        style={{ textDecoration: "none", ...parseStyle(s.card) }}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white">
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
+            style={parseStyle(s.badge)}>
             Sponsored
           </span>
-          <ExternalLink size={12} className="text-white/60 group-hover:text-white transition-colors" />
+          <ExternalLink size={12} className="opacity-40 group-hover:opacity-80 transition-opacity"
+            style={{ color: parseStyle(s.headline).color }} />
         </div>
         <div>
-          <p className="text-sm font-bold text-white leading-snug mb-1">
+          <p className="text-sm font-bold leading-snug mb-1" style={parseStyle(s.headline)}>
             {offer.headline}
           </p>
-          <p className="text-xs text-white/75 leading-relaxed">
+          <p className="text-xs leading-relaxed" style={parseStyle(s.subtext)}>
             {offer.subtext}
           </p>
         </div>
-        <span className="inline-block text-xs font-bold px-3 py-1.5 rounded-xl bg-white/20 text-white self-start group-hover:bg-white/30 transition-colors">
+        <span className="inline-block self-start text-xs font-bold px-3 py-1.5 rounded-xl"
+          style={parseStyle(s.cta)}>
           {offer.cta} →
         </span>
       </a>
@@ -143,21 +202,23 @@ export function AffiliateCard({
         href={offer.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`flex items-center gap-4 rounded-2xl px-5 py-3.5 group shrink-0 w-72 transition-opacity hover:opacity-90 ${className}`}
-        style={{ background: gradient, textDecoration: "none" }}
+        className={`flex items-center gap-3 rounded-2xl px-4 py-3 group shrink-0 w-72 transition-all hover:scale-[1.01] hover:shadow-md ${className}`}
+        style={{ textDecoration: "none", ...parseStyle(s.card) }}
       >
-        <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center bg-white/20">
-          <ExternalLink size={16} className="text-white" />
+        <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center"
+          style={parseStyle(s.icon)}>
+          <ExternalLink size={15} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-white truncate">
+          <p className="text-sm font-bold truncate" style={parseStyle(s.headline)}>
             {offer.headline}
           </p>
-          <p className="text-xs text-white/70 truncate">
+          <p className="text-xs truncate" style={parseStyle(s.subtext)}>
             {offer.subtext}
           </p>
         </div>
-        <span className="text-xs font-bold text-white shrink-0 px-3 py-1.5 rounded-xl bg-white/20 group-hover:bg-white/30 transition-colors whitespace-nowrap">
+        <span className="text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 whitespace-nowrap"
+          style={parseStyle(s.cta)}>
           {offer.cta}
         </span>
       </a>
@@ -170,32 +231,50 @@ export function AffiliateCard({
       href={offer.url}
       target="_blank"
       rel="noopener noreferrer sponsored"
-      className={`flex items-center gap-4 rounded-2xl px-5 py-4 group w-full transition-opacity hover:opacity-90 ${className}`}
-      style={{ background: gradient, textDecoration: "none" }}
+      className={`flex items-center gap-4 rounded-2xl px-5 py-4 group w-full transition-all hover:scale-[1.005] hover:shadow-lg ${className}`}
+      style={{ textDecoration: "none", ...parseStyle(s.card) }}
     >
-      {/* Icon blob */}
-      <div className="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center bg-white/20">
-        <ExternalLink size={18} className="text-white" />
+      {/* Icon */}
+      <div className="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center"
+        style={parseStyle(s.icon)}>
+        <ExternalLink size={18} />
       </div>
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <p className="text-sm font-bold text-white">{offer.headline}</p>
-          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 text-white hidden sm:inline">
+        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+          <p className="text-sm font-bold" style={parseStyle(s.headline)}>
+            {offer.headline}
+          </p>
+          <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full hidden sm:inline"
+            style={parseStyle(s.badge)}>
             Sponsored · Deriv
           </span>
         </div>
-        <p className="text-xs text-white/75">{offer.subtext}</p>
+        <p className="text-xs" style={parseStyle(s.subtext)}>{offer.subtext}</p>
       </div>
 
-      {/* CTA button */}
-      <span className="text-sm font-bold shrink-0 px-4 py-2 rounded-xl bg-white/20 text-white group-hover:bg-white/30 transition-colors whitespace-nowrap flex items-center gap-1.5">
+      {/* CTA */}
+      <span className="text-sm font-bold shrink-0 px-4 py-2 rounded-xl whitespace-nowrap flex items-center gap-1.5 transition-opacity group-hover:opacity-90"
+        style={parseStyle(s.cta)}>
         {offer.cta}
         <ExternalLink size={13} />
       </span>
     </a>
   );
+}
+
+// Helper — converts inline CSS string to React style object
+function parseStyle(css: string): React.CSSProperties {
+  const style: Record<string, string> = {};
+  css.split(";").forEach((rule) => {
+    const [prop, ...vals] = rule.split(":");
+    if (prop && vals.length) {
+      const key = prop.trim().replace(/-([a-z])/g, (_, l) => l.toUpperCase());
+      style[key] = vals.join(":").trim();
+    }
+  });
+  return style as React.CSSProperties;
 }
 
 // Scrollable strip of all 6 offers — used on Home page slot 1
