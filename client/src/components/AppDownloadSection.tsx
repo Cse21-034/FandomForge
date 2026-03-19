@@ -352,9 +352,16 @@ export function AppDownloadSection() {
            
 
   k 
-            {/* Mobile (iOS + Android) */}
+            {/* Mobile (iOS + Android) 
             <div style={{ marginBottom:24 }}>
-            
+              <p style={{
+                color:"rgba(255,255,255,0.55)",
+                fontSize:10, fontWeight:700,
+                letterSpacing:"0.1em", textTransform:"uppercase",
+                marginBottom:10,
+              }}>
+                📱 Mobile
+              </p>
               <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                 {DOWNLOADS.filter(d => d.id === "ios" || d.id === "android").map(d => (
                   <DownloadBtn
@@ -365,9 +372,9 @@ export function AppDownloadSection() {
                   />
                 ))}
               </div>
-            </div>
+            </div>*/}
 
-            {/* Desktop (Mac, Windows, Linux) 
+            {/* Desktop (Mac, Windows, Linux) */}
             <div style={{ marginBottom:32 }}>
               <p style={{
                 color:"rgba(255,255,255,0.55)",
@@ -386,7 +393,7 @@ export function AppDownloadSection() {
                   />
                 ))}
               </div>
-            </div>*/}
+            </div>
 
             {/* QR code + scan text */}
             <div style={{
