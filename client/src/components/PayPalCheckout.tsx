@@ -5,6 +5,13 @@ import { Loader2, AlertCircle, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { paymentApi } from "@/lib/api";
 
+// Helper to safely parse amount (handles Decimal objects, strings, null/undefined)
+const parseAmount = (amount: any): string => {
+  if (!amount) return "0.00";
+  const num = parseFloat(String(amount));
+  return isNaN(num) ? "0.00" : num.toFixed(2);
+};
+
 interface PayPalCheckoutProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -70,7 +77,7 @@ export function PPVCheckout({
           {/* Amount */}
           <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
             <span className="font-medium">Total Price</span>
-            <span className="text-xl font-bold text-primary">${parseFloat(amount).toFixed(2)}</span>
+            <span className="text-xl font-bold text-primary">${parseAmount(amount)}</span>
           </div>
 
           {/* Why PayPal? */}
@@ -195,7 +202,7 @@ export function SubscriptionCheckout({
               <span className="font-medium">Monthly Price</span>
               <p className="text-xs text-muted-foreground">Renews monthly</p>
             </div>
-            <span className="text-xl font-bold text-primary">${parseFloat(amount).toFixed(2)}</span>
+            <span className="text-xl font-bold text-primary">${parseAmount(amount)}</span>
           </div>
 
           {/* Benefits */}

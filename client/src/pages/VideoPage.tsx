@@ -413,7 +413,7 @@ export default function VideoPage() {
               onOpenChange={setShowSubscriptionDialog}
               creatorId={creator.id}
               creatorName={creator.user?.username || "Creator"}
-              amount={creator.subscriptionPrice}
+              amount={String(creator.subscriptionPrice || "9.99")}
             />
 
             {/* PPV Dialog */}
@@ -423,7 +423,7 @@ export default function VideoPage() {
               videoId={video.id}
               videoTitle={video.title}
               creatorId={video.creatorId}
-              amount={video.price || "5.00"}
+              amount={String(video.price || "5.00")}
             />
           </>
         )}
