@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { videoApi, categoryApi, creatorApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, SlidersHorizontal, X, Compass } from "lucide-react";
 import { useLocation } from "wouter";
+import { AffiliateCard } from "@/components/AffiliateCard";
+
+const INLINE_SLOT_EVERY = 8;
 
 function VideoSkeleton() {
   return (
@@ -45,7 +48,6 @@ export default function BrowsePageUpdated() {
       );
       return videos.map((v: any) => {
         const creator = creatorMap[v.creatorId] || null;
-        // FIXED: server returns creator.user.profileImage (not creator.profileImage)
         const avatar = creator?.user?.profileImage || undefined;
         return {
           ...v,
@@ -61,17 +63,38 @@ export default function BrowsePageUpdated() {
     queryFn: () => categoryApi.getAll(),
   });
 
-  const filteredVideos = videosWithCreators.filter((video: any) => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!video.title?.toLowerCase().includes(q) && !video.description?.toLowerCase().includes(q)) return false;
-    }
-    if (selectedCategory !== "all" && video.categoryId !== selectedCategory) return false;
-    if (contentType === "free" && video.type !== "free") return false;
-    if (contentType === "paid" && video.type !== "paid") return false;
-    if (!isAuthenticated && video.type !== "free") return false;
-    return true;
-  });
+  const filteredVideos = useMemo(() => {
+    return (videosWithCreators as any[]).filter((video: any) => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (
+          !video.title?.toLowerCase().includes(q) &&
+          !video.description?.toLowerCase().includes(q)
+        )
+          return false;
+      }
+      if (selectedCategory !== "all" && video.categoryId !== selectedCategory) return false;
+      if (contentType === "free" && video.type !== "free") return false;
+      if (contentType === "paid" && video.type !== "paid") return false;
+      if (!isAuthenticated && video.type !== "free") return false;
+      return true;
+    });
+  }, [videosWithCreators, searchQuery, selectedCategory, contentType, isAuthenticated]);
+
+  // Interleave affiliate cards every INLINE_SLOT_EVERY videos
+  const gridItems = useMemo(() => {
+    const items: Array<
+      | { type: "video"; video: any }
+      | { type: "affiliate"; index: number }
+    > = [];
+    filteredVideos.forEach((video: any, i: number) => {
+      items.push({ type: "video", video });
+      if ((i + 1) % INLINE_SLOT_EVERY === 0 && i < filteredVideos.length - 1) {
+        items.push({ type: "affiliate", index: Math.floor((i + 1) / INLINE_SLOT_EVERY) });
+      }
+    });
+    return items;
+  }, [filteredVideos]);
 
   const hasFilters = searchQuery || selectedCategory !== "all" || contentType !== "all";
 
@@ -100,11 +123,16 @@ export default function BrowsePageUpdated() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 page-enter">
         {/* Page header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-2xl bg-[hsl(var(--primary)/0.10)] flex items-center justify-center" style={{ background: "hsl(var(--primary) / 0.10)" }}>
+          <div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center"
+            style={{ background: "hsl(var(--primary) / 0.10)" }}
+          >
             <Compass className="h-5 w-5" style={{ color: "hsl(var(--primary))" }} />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold font-display leading-tight">Browse</h1>
+            <h1 className="text-xl sm:text-2xl font-bold font-display leading-tight">
+              Browse
+            </h1>
             <p className="text-sm text-muted-foreground">
               {filteredVideos.length} video{filteredVideos.length !== 1 ? "s" : ""}
               {hasFilters ? " found" : " available"}
@@ -135,7 +163,9 @@ export default function BrowsePageUpdated() {
             variant="outline"
             size="icon"
             onClick={() => setFiltersOpen(!filtersOpen)}
-            className={`h-10 w-10 rounded-2xl flex-shrink-0 ${filtersOpen || hasFilters ? "border-primary/50 text-primary" : ""}`}
+            className={`h-10 w-10 rounded-2xl flex-shrink-0 ${
+              filtersOpen || hasFilters ? "border-primary/50 text-primary" : ""
+            }`}
           >
             <SlidersHorizontal className="h-4 w-4" />
           </Button>
@@ -146,7 +176,9 @@ export default function BrowsePageUpdated() {
           <div className="bg-card border border-card-border rounded-3xl p-4 mb-5 space-y-4 shadow-lg">
             {/* Content type */}
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Content Type</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Content Type
+              </p>
               <div className="flex gap-2 flex-wrap">
                 {typeOptions.map(({ value, label }) => (
                   <button
@@ -157,9 +189,14 @@ export default function BrowsePageUpdated() {
                         ? "text-white shadow-sm"
                         : "bg-muted text-muted-foreground hover:text-foreground"
                     }`}
-                    style={contentType === value ? {
-                      background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))"
-                    } : {}}
+                    style={
+                      contentType === value
+                        ? {
+                            background:
+                              "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))",
+                          }
+                        : {}
+                    }
                   >
                     {label}
                   </button>
@@ -170,7 +207,9 @@ export default function BrowsePageUpdated() {
             {/* Categories */}
             {categories.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Category</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Category
+                </p>
                 <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => setSelectedCategory("all")}
@@ -179,9 +218,14 @@ export default function BrowsePageUpdated() {
                         ? "text-white shadow-sm"
                         : "bg-muted text-muted-foreground hover:text-foreground"
                     }`}
-                    style={selectedCategory === "all" ? {
-                      background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))"
-                    } : {}}
+                    style={
+                      selectedCategory === "all"
+                        ? {
+                            background:
+                              "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))",
+                          }
+                        : {}
+                    }
                   >
                     All
                   </button>
@@ -194,9 +238,14 @@ export default function BrowsePageUpdated() {
                           ? "text-white shadow-sm"
                           : "bg-muted text-muted-foreground hover:text-foreground"
                       }`}
-                      style={selectedCategory === cat.id ? {
-                        background: "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))"
-                      } : {}}
+                      style={
+                        selectedCategory === cat.id
+                          ? {
+                              background:
+                                "linear-gradient(135deg, hsl(350,100%,65%), hsl(320,80%,58%))",
+                            }
+                          : {}
+                      }
                     >
                       {cat.name}
                     </button>
@@ -206,7 +255,10 @@ export default function BrowsePageUpdated() {
             )}
 
             {hasFilters && (
-              <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <button
+                onClick={clearFilters}
+                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
                 <X className="h-3 w-3" /> Clear all filters
               </button>
             )}
@@ -217,40 +269,68 @@ export default function BrowsePageUpdated() {
         {!filtersOpen && hasFilters && (
           <div className="flex gap-2 flex-wrap mb-4">
             {contentType !== "all" && (
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-white"
-                style={{ background: "hsl(var(--primary))" }}>
+              <span
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-white"
+                style={{ background: "hsl(var(--primary))" }}
+              >
                 {contentType === "free" ? "Free" : "Premium"}
-                <button onClick={() => setContentType("all")}><X className="h-2.5 w-2.5" /></button>
+                <button onClick={() => setContentType("all")}>
+                  <X className="h-2.5 w-2.5" />
+                </button>
               </span>
             )}
             {selectedCategory !== "all" && (
               <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-muted text-foreground">
-                {categories.find(c => c.id === selectedCategory)?.name}
-                <button onClick={() => setSelectedCategory("all")}><X className="h-2.5 w-2.5" /></button>
+                {categories.find((c) => c.id === selectedCategory)?.name}
+                <button onClick={() => setSelectedCategory("all")}>
+                  <X className="h-2.5 w-2.5" />
+                </button>
               </span>
             )}
-            <button onClick={clearFilters} className="px-3 py-1 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground border border-dashed border-border">
+            <button
+              onClick={clearFilters}
+              className="px-3 py-1 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground border border-dashed border-border"
+            >
               Clear all
             </button>
           </div>
         )}
 
+        {/* ── SLOT 3: Affiliate banner — below search/filters, above grid ── */}
+        <div className="mb-6">
+          <AffiliateCard slotIndex={2} variant="banner" />
+        </div>
+
         {/* Video grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-            {[...Array(8)].map((_, i) => <VideoSkeleton key={i} />)}
+            {[...Array(8)].map((_, i) => (
+              <VideoSkeleton key={i} />
+            ))}
           </div>
         ) : filteredVideos.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-            {filteredVideos.map((video: any) => (
-              <VideoCard
-                key={video.id}
-                video={video}
-                creatorName={video._creator?.user?.username || "Creator"}
-                creatorAvatar={video._creatorAvatar}
-                onClick={() => navigate(`/video/${video.id}`)}
-              />
-            ))}
+            {gridItems.map((item) => {
+              if (item.type === "affiliate") {
+                /* ── SLOT 4: Inline grid slot — every 8 videos ── */
+                return (
+                  <AffiliateCard
+                    key={`affiliate-${item.index}`}
+                    slotIndex={3 + (item.index % 3)}
+                    variant="inline"
+                  />
+                );
+              }
+              return (
+                <VideoCard
+                  key={item.video.id}
+                  video={item.video}
+                  creatorName={item.video._creator?.user?.username || "Creator"}
+                  creatorAvatar={item.video._creatorAvatar}
+                  onClick={() => navigate(`/video/${item.video.id}`)}
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-16 rounded-3xl border border-dashed border-border bg-muted/20">
@@ -261,7 +341,9 @@ export default function BrowsePageUpdated() {
               {hasFilters ? "No videos match your filters" : "No videos yet"}
             </p>
             <p className="text-sm text-muted-foreground/60 mb-4">
-              {hasFilters ? "Try adjusting your search or filters" : "Check back soon!"}
+              {hasFilters
+                ? "Try adjusting your search or filters"
+                : "Check back soon!"}
             </p>
             {hasFilters && (
               <Button variant="outline" onClick={clearFilters} className="rounded-2xl">
