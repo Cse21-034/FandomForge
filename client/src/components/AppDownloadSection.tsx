@@ -382,7 +382,7 @@ export function AppDownloadSection() {
                 letterSpacing:"0.1em", textTransform:"uppercase",
                 marginBottom:10,
               }}>
-                🖥️ Desktop
+                {/*🖥️ Desktop*/}
               </p>
               <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                 {DOWNLOADS.filter(d => ["mac","windows","linux"].includes(d.id)).map(d => (
