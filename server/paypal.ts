@@ -1,7 +1,6 @@
 // server/paypal.ts
 // PayPal integration wrapper for payments and subscriptions
-
-import fetch from "node-fetch";
+// Uses native fetch available in Node.js 18+
 
 interface PayPalConfig {
   clientId: string;
