@@ -3,6 +3,7 @@ import { videoApi, creatorApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { VideoCard } from "@/components/VideoCard";
+import { AffiliateCard, AffiliateStrip } from "@/components/AffiliateCard";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { Play, Zap, Shield, TrendingUp, ArrowRight, Sparkles } from "lucide-react";
@@ -160,6 +161,13 @@ export default function HomePage() {
         </div>
       </section>
 
+
+ {/* ── SLOT 1: Affiliate strip between hero and video grid ── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-8">
+        <AffiliateStrip />
+      </div>
+
+
       {/* ── Videos Grid ── */}
       <section className="py-10 sm:py-14 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
@@ -224,6 +232,13 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+
+ <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-10">
+        <AffiliateCard slotIndex={1} variant="banner" />
+      </div>
+
+
 
       {/* ── Features ── */}
       <section className="py-10 sm:py-14 px-4 sm:px-6 bg-muted/30 border-t border-border/60">

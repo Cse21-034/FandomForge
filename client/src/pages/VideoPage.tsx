@@ -8,6 +8,7 @@ import { SendMessageDialog } from "@/components/SendMessageDialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VideoCard } from "@/components/VideoCard";
+import { AffiliateCard } from "@/components/AffiliateCard";
 import {
   ThumbsUp, Share2, Loader2, Check, Eye, Calendar,
   ArrowLeft, Users, CheckCircle,
@@ -371,11 +372,24 @@ export default function VideoPage() {
 
               {/* Comments Section */}
               <CommentsSection videoId={videoId!} />
+
+               {/* ── SLOT 6: Affiliate banner below comments ── */}
+            <div className="mt-8">
+              <AffiliateCard slotIndex={5} variant="banner" />
+            </div>
+
+
             </div>
           </div>
 
           {/* ── Sidebar — related videos only ── */}
           <div className="lg:col-span-1">
+
+
+ {/* ── SLOT 5: Affiliate card in sidebar, below related videos ── */}
+            <AffiliateCard slotIndex={4} variant="sidebar" />
+
+
             <h2 className="font-bold font-display text-sm mb-4 text-muted-foreground uppercase tracking-wider">
               More from {creatorName}
             </h2>
@@ -399,6 +413,9 @@ export default function VideoPage() {
                   <p className="text-sm text-muted-foreground">No other videos</p>
                 </div>
               )}
+
+               {/* ── SLOT 5: Affiliate card in sidebar, below related videos ── */}
+            <AffiliateCard slotIndex={4} variant="sidebar" />
             </div>
           </div>
         </div>
