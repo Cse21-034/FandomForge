@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Gift } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface HeaderProps {
   userRole?: "creator" | "consumer" | null;
@@ -28,17 +29,26 @@ interface HeaderProps {
 }
 
 export function Header({
-  userRole,
-  username,
-  profileImage,
-  isAuthenticated,
+  userRole: propsUserRole,
+  username: propsUsername,
+  profileImage: propsProfileImage,
+  isAuthenticated: propsIsAuthenticated,
   onSearch,
-  onLogout,
+  onLogout: propsOnLogout,
 }: HeaderProps) {
   const [location, navigate] = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Use auth hook to get user data
+  const { user } = useAuth();
+  
+  // Use props if provided, otherwise use auth hook data
+  const isAuthenticated = propsIsAuthenticated ?? !!user;
+  const userRole = propsUserRole ?? (user?.role as "creator" | "consumer" | null);
+  const username = propsUsername ?? user?.username;
+  const profileImage = propsProfileImage ?? user?.profileImage;
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 10);
@@ -54,7 +64,7 @@ export function Header({
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
     localStorage.removeItem("userId");
-    onLogout?.();
+    propsOnLogout?.();
     navigate("/");
   };
 
