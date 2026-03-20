@@ -16,7 +16,7 @@ import PayPalClient from "./paypal";
 import { registerReferralRoutes } from "./referral-routes";
 import { v2 as cloudinary } from "cloudinary";
 import { db } from "./db";
-import { likes, shares, videoViews, videos as videosTable } from "@shared/schema";
+import { likes, shares, videoViews, videos as videosTable, payments as paymentsTable } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 const paypal = new PayPalClient({
@@ -639,20 +639,72 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
           return;
         }
 
-        // Verify order with PayPal
+        // 1. Capture the PayPal order (money is collected here)
         const orderDetails = await paypal.captureOrder(orderId);
-
-        console.log("PayPal capture:", orderDetails.status);
+        console.log("PayPal capture result:", orderDetails.status);
 
         if (orderDetails.status !== "COMPLETED") {
-          res.status(400).json({ error: `Payment status: ${orderDetails.status}` });
+          res.status(400).json({
+            error: `Payment not completed. Status: ${orderDetails.status}`
+          });
           return;
         }
 
-        res.json({ success: true, transactionId: orderDetails.id });
+        // 2. Find the pending payment record by PayPal order ID
+        const pendingPayments = await db
+          .select()
+          .from(paymentsTable)
+          .where(eq(paymentsTable.paypalOrderId, orderId))
+          .limit(1);
+
+        // 3. Mark it completed — THIS is what was missing
+        if (pendingPayments.length > 0) {
+          await db
+            .update(paymentsTable)
+            .set({
+              status: "completed",
+              paypalTransactionId: orderDetails.id,
+            })
+            .where(eq(paymentsTable.id, pendingPayments[0].id));
+        }
+
+        res.json({
+          success: true,
+          transactionId: orderDetails.id,
+          status: orderDetails.status,
+        });
       } catch (error) {
         console.error("Capture PPV error:", error);
-        res.status(500).json({ error: "Failed to capture payment" });
+        const msg = error instanceof Error ? error.message : "Failed";
+        res.status(500).json({ error: msg });
+      }
+    }
+  );
+
+  // Check if user has PPV access to a video
+  app.get("/api/payments/check-ppv/:videoId", authenticateToken,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const { videoId } = req.params;
+        const userId = req.user!.userId;
+
+        const result = await db
+          .select()
+          .from(paymentsTable)
+          .where(
+            and(
+              eq(paymentsTable.consumerId, userId),
+              eq(paymentsTable.videoId, videoId),
+              eq(paymentsTable.type, "ppv"),
+              eq(paymentsTable.status, "completed")
+            )
+          )
+          .limit(1);
+
+        res.json({ hasAccess: result.length > 0 });
+      } catch (error) {
+        console.error("Check PPV access error:", error);
+        res.status(500).json({ error: "Failed to check access" });
       }
     }
   );

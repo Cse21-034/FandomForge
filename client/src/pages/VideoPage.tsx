@@ -18,12 +18,30 @@ import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { PPVCheckout, SubscriptionCheckout } from "@/components/PayPalCheckout";
 
+// ── NEW: checks if user has a completed PPV payment for this video ──
+async function checkPPVAccess(videoId: string): Promise<boolean> {
+  try {
+    const token = localStorage.getItem("authToken");
+    if (!token) return false;
+    const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    const res = await fetch(`${API_BASE}/payments/check-ppv/${videoId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.hasAccess;
+  } catch {
+    return false;
+  }
+}
+
 export default function VideoPage() {
   const [_location, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isLiked, setIsLiked] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [hasPPVAccess, setHasPPVAccess] = useState(false); // ── NEW
   const [likingInProgress, setLikingInProgress] = useState(false);
   const [subscribingInProgress, setSubscribingInProgress] = useState(false);
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
@@ -76,14 +94,18 @@ export default function VideoPage() {
     engagementApi.isLiked(videoId).then((r) => setIsLiked(r.liked)).catch(() => {});
   }, [videoId, isAuthenticated]);
 
-  // Check subscription status
+  // Check subscription status + PPV access
   useEffect(() => {
     if (!isAuthenticated || !video?.creatorId) return;
     subscriptionApi
       .check(video.creatorId)
       .then((r) => setIsSubscribed(r.subscribed || false))
       .catch(() => {});
-  }, [video?.creatorId, isAuthenticated]);
+    // ── NEW: also check if user bought this specific video via PPV
+    if (video.type === "paid" && videoId) {
+      checkPPVAccess(videoId).then(setHasPPVAccess).catch(() => {});
+    }
+  }, [video?.creatorId, video?.type, isAuthenticated, videoId]);
 
   // Track view
   useEffect(() => {
@@ -168,7 +190,8 @@ export default function VideoPage() {
   // ── Access control ─────────────────────────────────────────────────
   // A paid video is ONLY unlocked when:
   //   1. The logged-in user is the creator who OWNS this specific video, OR
-  //   2. The logged-in user has an active subscription to this creator.
+  //   2. The logged-in user has an active subscription to this creator, OR
+  //   3. The logged-in user has a completed PPV payment for this video.  ── NEW
   // Any other creator (who doesn't own it) must subscribe just like a fan.
   const isOwnVideo =
     !!user?.creator?.id && user.creator.id === video.creatorId;
@@ -176,7 +199,8 @@ export default function VideoPage() {
   const isLocked =
     video.type === "paid" &&
     !isOwnVideo &&
-    !isSubscribed;
+    !isSubscribed &&
+    !hasPPVAccess; // ── NEW
 
   const creatorName = creator?.user?.username || "Creator";
   const creatorInitials = creatorName.slice(0, 2).toUpperCase();
