@@ -242,7 +242,6 @@ const { data: collections = [] } = useQuery({
 
 
 
-// Add in JSX after videos section
 {(collections as any[]).length > 0 && (
   <section className="py-10 sm:py-14 px-4 sm:px-6">
     <div className="max-w-7xl mx-auto">
