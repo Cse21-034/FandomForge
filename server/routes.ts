@@ -1574,7 +1574,6 @@ app.get("/api/collections/:id", async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    // Check access — who can see all items vs just item 1
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
     let userId: string | null = null;
@@ -1591,11 +1590,11 @@ app.get("/api/collections/:id", async (req: AuthenticatedRequest, res) => {
     }
 
     if (!isOwner && userId) {
-      // Check if subscribed to this creator
+      // Check subscription
       const sub = await storage.getActiveSubscription(userId, collection.creatorId);
       if (sub) hasAccess = true;
 
-      // Check if paid for this specific collection
+      // Check collection payment
       if (!hasAccess) {
         const payment = await db
           .select()
@@ -1613,15 +1612,20 @@ app.get("/api/collections/:id", async (req: AuthenticatedRequest, res) => {
       }
     }
 
-    // Trailer model: item at position 1 is always free.
-    // For locked users, strip content from items at position > 1.
+    // ── FIX: Strip ALL content fields server-side for locked items ──
     const items = collection.items.map((item: any) => {
       const isFree = item.position === 1;
-      if (isOwner || hasAccess || isFree) return { ...item, locked: false };
-      // Strip actual content URLs for locked items
+      const canView = isOwner || hasAccess || isFree;
+
+      if (canView) {
+        return { ...item, locked: false };
+      }
+
+      // Strip EVERYTHING including videoUrl
       return {
         ...item,
         videoId: null,
+        videoUrl: null,      // ← ADD THIS — was missing before
         imageUrl: null,
         textContent: null,
         locked: true,
@@ -1722,9 +1726,12 @@ app.post("/api/collections/:id/items", authenticateToken, requireRole("creator")
       if (creator?.userId !== req.user!.userId) {
         res.status(403).json({ error: "Forbidden" }); return;
       }
-      const { itemType, videoId, imageUrl, textContent, title, description, position } = req.body;
 
-      // Auto-assign next position if not provided
+      const { 
+        itemType, videoId, videoUrl,  // ← ADD videoUrl
+        imageUrl, textContent, title, description, position 
+      } = req.body;
+
       const existing = await storage.getCollectionWithItems(collection.id);
       const nextPos = position ?? (existing?.items?.length ?? 0) + 1;
 
@@ -1733,6 +1740,7 @@ app.post("/api/collections/:id/items", authenticateToken, requireRole("creator")
         position: nextPos,
         itemType: itemType || "video",
         videoId: videoId || null,
+        videoUrl: videoUrl || null,   // ← ADD THIS
         imageUrl: imageUrl || null,
         textContent: textContent || null,
         title: title?.trim() || null,

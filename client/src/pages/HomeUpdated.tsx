@@ -1,7 +1,10 @@
 import { useAuth } from "@/hooks/useAuth";
-import { videoApi, creatorApi } from "@/lib/api";
+import { videoApi, creatorApi, collectionApi  } from "@/lib/api";
+
+
 import { useQuery } from "@tanstack/react-query";
 import { VideoCard } from "@/components/VideoCard";
+import { CollectionCard } from "@/components/CollectionCard";
 import { AffiliateCard, AffiliateStrip } from "@/components/AffiliateCard";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -53,6 +56,13 @@ export default function HomePage() {
       });
     },
   });
+
+// Add query
+const { data: collections = [] } = useQuery({
+  queryKey: ["collections-home"],
+  queryFn: () => collectionApi.getAll(),
+});
+
 
   const features = [
     {
@@ -229,6 +239,46 @@ export default function HomePage() {
  <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-10">
         <AffiliateCard slotIndex={1} variant="banner" />
       </div>
+
+
+
+// Add in JSX after videos section
+{(collections as any[]).length > 0 && (
+  <section className="py-10 sm:py-14 px-4 sm:px-6">
+    <div className="max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold font-display">
+            Collections
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Exclusive content bundles
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/browse")}
+          className="rounded-full text-[hsl(var(--primary))] font-semibold hidden sm:flex"
+        >
+          View all <ArrowRight className="h-3.5 w-3.5 ml-1" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+        {(collections as any[]).slice(0, 3).map((col: any) => (
+          <CollectionCard
+            key={col.id}
+            collection={col}
+            onClick={() => navigate(`/collection/${col.id}`)}
+          />
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+
+
 
 
 

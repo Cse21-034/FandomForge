@@ -102,15 +102,14 @@ export const collections = pgTable("collections", {
 
 // ── collection_items ─────────────────────────────────────────────────
 export const collectionItems = pgTable("collection_items", {
-  // FIX: use varchar to be consistent with other id columns
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   collectionId: varchar("collection_id")
     .notNull()
     .references(() => collections.id, { onDelete: "cascade" }),
   position: integer("position").notNull().default(0),
-  itemType: text("item_type").notNull().default("video"), // "video" | "image" | "text"
-  // FIX: videoId uses varchar to match videos.id (was uuid, causing FK type mismatch)
+  itemType: text("item_type").notNull().default("video"),
   videoId: varchar("video_id").references(() => videos.id, { onDelete: "set null" }),
+  videoUrl: text("video_url"),        // ← ADD THIS — stores Cloudinary URL directly
   imageUrl: text("image_url"),
   textContent: text("text_content"),
   title: text("title"),

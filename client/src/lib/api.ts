@@ -363,6 +363,7 @@ export const collectionApi = {
   addItem: (collectionId: string, data: {
     itemType: "video" | "image" | "text";
     videoId?: string;
+    videoUrl?: string;     // ← ADD THIS
     imageUrl?: string;
     textContent?: string;
     title?: string;

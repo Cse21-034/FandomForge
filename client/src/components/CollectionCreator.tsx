@@ -138,53 +138,55 @@ export function CollectionCreator({ creatorId }: Props) {
     },
   });
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    if (!editingId) return;
+const handleFiles = useCallback(async (files: File[]) => {
+  if (!editingId) return;
 
-    const newUploads: UploadingFile[] = files.map((f) => ({
-      id: Math.random().toString(36).slice(2),
-      name: f.name,
-      type: f.type.startsWith("video/") ? "video" : "image",
-      progress: 0,
-      status: "uploading",
-    }));
+  const newUploads: UploadingFile[] = files.map((f) => ({
+    id: Math.random().toString(36).slice(2),
+    name: f.name,
+    type: f.type.startsWith("video/") ? "video" : "image",
+    progress: 0,
+    status: "uploading",
+  }));
 
-    setUploading((prev) => [...prev, ...newUploads]);
+  setUploading((prev) => [...prev, ...newUploads]);
+  const currentItems: any[] = (editingCollection as any)?.items ?? [];
 
-    const currentItems: any[] = (editingCollection as any)?.items ?? [];
-
-    await Promise.all(
-      files.map(async (file, i) => {
-        const uid = newUploads[i].id;
-        const resourceType = file.type.startsWith("video/") ? "video" : "image";
-        try {
-          const url = await uploadToCloudinary(file, resourceType, (pct) => {
-            setUploading((prev) =>
-              prev.map((u) => (u.id === uid ? { ...u, progress: pct } : u))
-            );
-          });
-
-          await collectionApi.addItem(editingId, {
-            itemType: resourceType,
-            ...(resourceType === "image" ? { imageUrl: url } : {}),
-            title: file.name.replace(/\.[^.]+$/, ""),
-            position: currentItems.length + i + 1,
-          });
-
-          queryClient.invalidateQueries({ queryKey: ["collection", editingId] });
+  await Promise.all(
+    files.map(async (file, i) => {
+      const uid = newUploads[i].id;
+      const resourceType = file.type.startsWith("video/") ? "video" : "image";
+      try {
+        const url = await uploadToCloudinary(file, resourceType, (pct) => {
           setUploading((prev) =>
-            prev.map((u) => (u.id === uid ? { ...u, status: "done" as const, url } : u))
+            prev.map((u) => (u.id === uid ? { ...u, progress: pct } : u))
           );
-        } catch {
-          setUploading((prev) =>
-            prev.map((u) => (u.id === uid ? { ...u, status: "error" as const } : u))
-          );
-        }
-      })
-    );
+        });
 
-    setTimeout(() => setUploading((prev) => prev.filter((u) => u.status !== "done")), 2000);
-  }, [editingId, editingCollection, queryClient]);
+        // ── Save url to the correct field based on type ──
+        await collectionApi.addItem(editingId, {
+          itemType: resourceType,
+          ...(resourceType === "video" 
+            ? { videoUrl: url }      // ← video URL stored directly
+            : { imageUrl: url }),    // ← image URL stored directly
+          title: file.name.replace(/\.[^.]+$/, ""),
+          position: currentItems.length + i + 1,
+        });
+
+        queryClient.invalidateQueries({ queryKey: ["collection", editingId] });
+        setUploading((prev) =>
+          prev.map((u) => (u.id === uid ? { ...u, status: "done" as const, url } : u))
+        );
+      } catch {
+        setUploading((prev) =>
+          prev.map((u) => (u.id === uid ? { ...u, status: "error" as const } : u))
+        );
+      }
+    })
+  );
+
+  setTimeout(() => setUploading((prev) => prev.filter((u) => u.status !== "done")), 2000);
+}, [editingId, editingCollection, queryClient]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();

@@ -8,8 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Search, SlidersHorizontal, X, Compass } from "lucide-react";
 import { useLocation } from "wouter";
 import { AffiliateCard } from "@/components/AffiliateCard";
+import { collectionApi } from "@/lib/api";
+import { CollectionCard } from "@/components/CollectionCard";
 
 const INLINE_SLOT_EVERY = 8;
+
+
+
+
+
 
 function VideoSkeleton() {
   return (
@@ -33,6 +40,11 @@ export default function BrowsePageUpdated() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [contentType, setContentType] = useState<"all" | "free" | "paid">("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Add this query at the top of BrowsePageUpdated component
+const { data: collections = [] } = useQuery({
+  queryKey: ["collections"],
+  queryFn: () => collectionApi.getAll(),
+});
 
   const { data: videosWithCreators = [], isLoading } = useQuery({
     queryKey: ["videos-with-creators"],
@@ -343,6 +355,25 @@ export default function BrowsePageUpdated() {
             )}
           </div>
         )}
+
+{/* ── Collections Section ── */}
+{(collections as any[]).length > 0 && (
+  <div className="mt-10">
+    <h2 className="text-xl font-bold font-display mb-4">Collections</h2>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+      {(collections as any[]).map((col: any) => (
+        <CollectionCard
+          key={col.id}
+          collection={col}
+          onClick={() => navigate(`/collection/${col.id}`)}
+        />
+      ))}
+    </div>
+  </div>
+)}
+
+
+
       </div>
     </div>
   );
