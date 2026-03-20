@@ -5,6 +5,7 @@ import {
   generateToken,
   hashPassword,
   verifyPassword,
+  verifyToken,
 } from "./auth";
 import {
   authenticateToken,
@@ -294,10 +295,25 @@ app.put("/api/auth/creator-settings", authenticateToken, requireRole("creator"),
   // IMPORTANT: specific routes (/creator/:id, /upload) must come BEFORE /:id
   // otherwise Express matches "creator" and "upload" as the :id param
 
-  app.get("/api/videos", async (_req, res) => {
+  app.get("/api/videos", async (req, res) => {
     try {
       const allVideos = await storage.getAllVideos();
-      res.json(allVideos);
+      
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      let isAuthenticated = false;
+      
+      if (token) {
+        const decoded = verifyToken(token);
+        if (decoded) isAuthenticated = true;
+      }
+      
+      // Only show free videos to unauthenticated users
+      const filtered = isAuthenticated 
+        ? allVideos 
+        : allVideos.filter(v => v.type === "free");
+      
+      res.json(filtered);
     } catch (error) {
       console.error("Get videos error:", error);
       res.status(500).json({ error: "Failed to fetch videos" });
@@ -575,12 +591,16 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
         const creatorEarnings = parseFloat(amount) - platformCommission;
 
         // Create PayPal order
+        const baseReturnUrl = process.env.PAYPAL_RETURN_URL || "http://localhost:5173/payment-success";
+        const returnUrl = `${baseReturnUrl}?videoId=${videoId}&creatorId=${creatorId}`;
+        const baseCancelUrl = process.env.PAYPAL_CANCEL_URL || "http://localhost:5173/payment-cancel";
+        
         const order = await paypal.createOrder({
           amount: amount.toString(),
           currency: "USD",
           description: `Purchase: ${video.title}`,
-          returnUrl: `${process.env.PAYPAL_RETURN_URL || "http://localhost:5173/payment-success"}?videoId=${videoId}`,
-          cancelUrl: `${process.env.PAYPAL_CANCEL_URL || "http://localhost:5173/payment-cancel"}`,
+          returnUrl: returnUrl,
+          cancelUrl: baseCancelUrl,
         });
 
         // Store pending payment in DB
@@ -612,30 +632,26 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
   app.post("/api/payments/capture-ppv", authenticateToken,
     async (req: AuthenticatedRequest, res) => {
       try {
-        const { orderId, paymentId } = req.body;
+        const { orderId, payerId } = req.body;
 
-        if (!orderId || !paymentId) {
-          res.status(400).json({ error: "Missing orderId or paymentId" });
+        if (!orderId) {
+          res.status(400).json({ error: "Missing orderId" });
           return;
         }
 
         // Verify order with PayPal
         const orderDetails = await paypal.captureOrder(orderId);
 
+        console.log("PayPal capture:", orderDetails.status);
+
         if (orderDetails.status !== "COMPLETED") {
-          res.status(400).json({ error: "Payment was not completed" });
+          res.status(400).json({ error: `Payment status: ${orderDetails.status}` });
           return;
         }
 
-        // Update payment status to completed
-        const payment = await storage.updatePayment(paymentId, {
-          status: "completed",
-          paypalTransactionId: orderDetails.id,
-        });
-
-        res.json({ success: true, payment });
+        res.json({ success: true, transactionId: orderDetails.id });
       } catch (error) {
-        console.error("Capture PPV payment error:", error);
+        console.error("Capture PPV error:", error);
         res.status(500).json({ error: "Failed to capture payment" });
       }
     }
@@ -672,12 +688,16 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
         });
 
         // Create subscription request
+        const baseReturnUrl = process.env.PAYPAL_RETURN_URL || "http://localhost:5173/payment-success";
+        const returnUrl = `${baseReturnUrl}?creatorId=${creatorId}`;
+        const baseCancelUrl = process.env.PAYPAL_CANCEL_URL || "http://localhost:5173/payment-cancel";
+        
         const subscription = await paypal.createSubscription({
           planId: plan.id,
           email: user.email,
           name: user.username,
-          returnUrl: `${process.env.PAYPAL_RETURN_URL || "http://localhost:5173/payment-success"}?creatorId=${creatorId}`,
-          cancelUrl: `${process.env.PAYPAL_CANCEL_URL || "http://localhost:5173/payment-cancel"}`,
+          returnUrl: returnUrl,
+          cancelUrl: baseCancelUrl,
         });
 
         res.json({

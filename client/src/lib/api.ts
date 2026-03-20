@@ -187,8 +187,8 @@ export const paymentApi = {
   createPPVOrder: (videoId: string, creatorId: string, amount: string) =>
     apiRequest("/payments/create-ppv", { method: "POST", body: { videoId, creatorId, amount } }),
 
-  capturePPVOrder: (orderId: string, paymentId: string) =>
-    apiRequest("/payments/capture-ppv", { method: "POST", body: { orderId, paymentId } }),
+  capturePPVOrder: (orderId: string, payerId: string) =>
+    apiRequest("/payments/capture-ppv", { method: "POST", body: { orderId, payerId } }),
 
   // Subscriptions
   createSubscription: (creatorId: string) =>

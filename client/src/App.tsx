@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
@@ -19,7 +20,6 @@ import RewardsPage from "@/pages/RewardsPage";
 import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
 import PaymentCancelPage from "@/pages/PaymentCancelPage";
 import { useReferralTracker } from "@/hooks/useReferralTracker";
-import { DownloadPopupBanner, DesktopDownloadBanner } from "@/components/AppDownloadSection";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 
 function Router() {
@@ -54,19 +54,19 @@ function Router() {
 }
 
 function App() {
-  useReferralTracker();   // ← reads ?ref= from URL and fires click tracking
+  useReferralTracker();
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <TooltipProvider>
-          <Toaster />
-          <PWAInstallBanner />
-          {/* <DownloadPopupBanner />      
-          <DesktopDownloadBanner /> */}
-          <Header />
-          <Router />
-        </TooltipProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Toaster />
+            <PWAInstallBanner />
+            <Header />
+            <Router />
+          </TooltipProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
