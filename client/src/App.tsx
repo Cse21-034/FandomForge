@@ -21,6 +21,7 @@ import PaymentSuccessPage from "@/pages/PaymentSuccessPage";
 import PaymentCancelPage from "@/pages/PaymentCancelPage";
 import { useReferralTracker } from "@/hooks/useReferralTracker";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
+import CollectionPage from "@/pages/CollectionPage";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/" component={HomeUpdated} />
       <Route path="/browse" component={BrowsePageUpdated} />
       <Route path="/video/:id" component={VideoPage} />
+      <Route path="/collection/:id" component={CollectionPage} />
       <Route path="/rewards" component={RewardsPage} />
 
       {/* Profile */}

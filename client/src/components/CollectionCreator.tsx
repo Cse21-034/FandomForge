@@ -10,6 +10,13 @@ import {
   ChevronDown, ChevronUp,
 } from "lucide-react";
 
+// ── Item icon mapping ─────────────────────────────────────────────
+const ITEM_ICON: Record<string, any> = {
+  video: Film,
+  image: Image,
+  text: FileText,
+};
+
 // ── Cloudinary direct upload ──────────────────────────────────────────
 async function uploadToCloudinary(
   file: File,
@@ -506,7 +513,7 @@ export function CollectionCreator({ creatorId }: Props) {
             Items — drag to reorder
           </p>
           {items.map((item: any, idx: number) => {
-            const ItemIcon = ITEM_ICON[item.itemType] || Play;
+            const ItemIcon = ITEM_ICON[item.itemType] || Film;
             return (
               <div
                 key={item.id}

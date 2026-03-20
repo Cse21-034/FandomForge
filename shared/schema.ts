@@ -17,7 +17,7 @@ import { z } from "zod";
 export const userRoleEnum = pgEnum("user_role", ["consumer", "creator", "admin"]);
 export const videoTypeEnum = pgEnum("video_type", ["free", "paid"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "completed", "failed"]);
-export const paymentTypeEnum = pgEnum("payment_type", ["subscription", "ppv"]);
+export const paymentTypeEnum = pgEnum("payment_type", ["subscription", "ppv", "collection"]);
 export const notificationTypeEnum = pgEnum("notification_type", [
   "new_video",
   "new_subscriber",

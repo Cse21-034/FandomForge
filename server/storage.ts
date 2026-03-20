@@ -82,8 +82,8 @@ export interface IStorage {
   getPayment(id: string): Promise<Payment | undefined>;
   getPaymentsByCreatorId(creatorId: string): Promise<Payment[]>;
   updatePayment(id: string, updates: Partial<Payment>): Promise<Payment | undefined>;
-  getCreatorEarnings(creatorId: string): Promise<decimal | null>;
-  getPlatformCommission(startDate?: Date, endDate?: Date): Promise<decimal | null>;
+  getCreatorEarnings(creatorId: string): Promise<number | null>;
+  getPlatformCommission(startDate?: Date, endDate?: Date): Promise<number | null>;
 
   // Creator Payouts
   createCreatorPayout(payout: any): Promise<any>;

@@ -16,7 +16,8 @@ import PayPalClient from "./paypal";
 import { registerReferralRoutes } from "./referral-routes";
 import { v2 as cloudinary } from "cloudinary";
 import { db } from "./db";
-import { likes, shares, videoViews, videos as videosTable, payments as paymentsTable } from "@shared/schema";
+import { likes, shares, videoViews, videos as videosTable, payments as paymentsTable, collections as collectionsTable, collectionItems as collectionItemsTable } from "@shared/schema";
+
 import { eq, and, sql } from "drizzle-orm";
 
 const paypal = new PayPalClient({
@@ -1519,6 +1520,415 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
       }
     }
   );
+
+
+// ================================================================
+// ADD TO server/routes.ts  —  Collections section
+// Place this entire block before the registerReferralRoutes(app) line
+// ================================================================
+
+// Make sure these are in your schema imports at the top of routes.ts:
+// import { ..., collections as collectionsTable, collectionItems as collectionItemsTable, payments as paymentsTable } from "@shared/schema";
+
+// ==================== COLLECTIONS ====================
+
+// GET all published collections (for browse)
+app.get("/api/collections", async (req, res) => {
+  try {
+    const all = await db
+      .select()
+      .from(collectionsTable)
+      .where(eq(collectionsTable.isPublished, true))
+      .orderBy(collectionsTable.createdAt);
+    res.json(all);
+  } catch (error) {
+    console.error("Get collections error:", error);
+    res.status(500).json({ error: "Failed to fetch collections" });
+  }
+});
+
+// GET collections by creator (for creator dashboard — includes unpublished)
+app.get("/api/collections/creator/:creatorId", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const creator = await storage.getCreator(req.params.creatorId);
+      if (!creator || creator.userId !== req.user!.userId) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+      const cols = await storage.getCollectionsByCreatorId(req.params.creatorId);
+      res.json(cols);
+    } catch (error) {
+      console.error("Get creator collections error:", error);
+      res.status(500).json({ error: "Failed to fetch collections" });
+    }
+  }
+);
+
+// GET single collection with all items
+app.get("/api/collections/:id", async (req: AuthenticatedRequest, res) => {
+  try {
+    const collection = await storage.getCollectionWithItems(req.params.id);
+    if (!collection) {
+      res.status(404).json({ error: "Collection not found" });
+      return;
+    }
+
+    // Check access — who can see all items vs just item 1
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    let userId: string | null = null;
+    let isOwner = false;
+    let hasAccess = false;
+
+    if (token) {
+      const decoded = verifyToken(token);
+      if (decoded) {
+        userId = decoded.userId;
+        const creator = await storage.getCreatorByUserId(decoded.userId);
+        isOwner = !!creator && creator.id === collection.creatorId;
+      }
+    }
+
+    if (!isOwner && userId) {
+      // Check if subscribed to this creator
+      const sub = await storage.getActiveSubscription(userId, collection.creatorId);
+      if (sub) hasAccess = true;
+
+      // Check if paid for this specific collection
+      if (!hasAccess) {
+        const payment = await db
+          .select()
+          .from(paymentsTable)
+          .where(
+            and(
+              eq(paymentsTable.consumerId, userId),
+              eq(paymentsTable.collectionId, collection.id),
+              eq(paymentsTable.type, "collection"),
+              eq(paymentsTable.status, "completed")
+            )
+          )
+          .limit(1);
+        if (payment.length > 0) hasAccess = true;
+      }
+    }
+
+    // Trailer model: item at position 1 is always free.
+    // For locked users, strip content from items at position > 1.
+    const items = collection.items.map((item: any) => {
+      const isFree = item.position === 1;
+      if (isOwner || hasAccess || isFree) return { ...item, locked: false };
+      // Strip actual content URLs for locked items
+      return {
+        ...item,
+        videoId: null,
+        imageUrl: null,
+        textContent: null,
+        locked: true,
+      };
+    });
+
+    res.json({ ...collection, items, isOwner, hasAccess });
+  } catch (error) {
+    console.error("Get collection error:", error);
+    res.status(500).json({ error: "Failed to fetch collection" });
+  }
+});
+
+// POST create a new collection
+app.post("/api/collections", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { title, description, type, price, thumbnailUrl } = req.body;
+      if (!title) {
+        res.status(400).json({ error: "Title is required" });
+        return;
+      }
+      const creator = await storage.getCreatorByUserId(req.user!.userId);
+      if (!creator) {
+        res.status(404).json({ error: "Creator profile not found" });
+        return;
+      }
+      const collection = await storage.createCollection({
+        creatorId: creator.id,
+        title: title.trim(),
+        description: description?.trim() || null,
+        type: type || "series",
+        price: String(parseFloat(String(price || 9.99)).toFixed(2)),
+        thumbnailUrl: thumbnailUrl || null,
+        isPublished: false,
+      });
+      res.status(201).json(collection);
+    } catch (error) {
+      console.error("Create collection error:", error);
+      res.status(500).json({ error: "Failed to create collection" });
+    }
+  }
+);
+
+// PUT update collection metadata
+app.put("/api/collections/:id", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const collection = await storage.getCollection(req.params.id);
+      if (!collection) { res.status(404).json({ error: "Collection not found" }); return; }
+      const creator = await storage.getCreator(collection.creatorId);
+      if (creator?.userId !== req.user!.userId) {
+        res.status(403).json({ error: "Forbidden" }); return;
+      }
+      const { title, description, type, price, thumbnailUrl, isPublished } = req.body;
+      const updated = await storage.updateCollection(collection.id, {
+        ...(title !== undefined && { title: title.trim() }),
+        ...(description !== undefined && { description: description?.trim() || null }),
+        ...(type !== undefined && { type }),
+        ...(price !== undefined && { price: String(parseFloat(String(price)).toFixed(2)) }),
+        ...(thumbnailUrl !== undefined && { thumbnailUrl }),
+        ...(isPublished !== undefined && { isPublished }),
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Update collection error:", error);
+      res.status(500).json({ error: "Failed to update collection" });
+    }
+  }
+);
+
+// DELETE collection
+app.delete("/api/collections/:id", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const collection = await storage.getCollection(req.params.id);
+      if (!collection) { res.status(404).json({ error: "Collection not found" }); return; }
+      const creator = await storage.getCreator(collection.creatorId);
+      if (creator?.userId !== req.user!.userId) {
+        res.status(403).json({ error: "Forbidden" }); return;
+      }
+      await storage.deleteCollection(collection.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete collection error:", error);
+      res.status(500).json({ error: "Failed to delete collection" });
+    }
+  }
+);
+
+// POST add item to collection
+app.post("/api/collections/:id/items", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const collection = await storage.getCollection(req.params.id);
+      if (!collection) { res.status(404).json({ error: "Collection not found" }); return; }
+      const creator = await storage.getCreator(collection.creatorId);
+      if (creator?.userId !== req.user!.userId) {
+        res.status(403).json({ error: "Forbidden" }); return;
+      }
+      const { itemType, videoId, imageUrl, textContent, title, description, position } = req.body;
+
+      // Auto-assign next position if not provided
+      const existing = await storage.getCollectionWithItems(collection.id);
+      const nextPos = position ?? (existing?.items?.length ?? 0) + 1;
+
+      const item = await storage.createCollectionItem({
+        collectionId: collection.id,
+        position: nextPos,
+        itemType: itemType || "video",
+        videoId: videoId || null,
+        imageUrl: imageUrl || null,
+        textContent: textContent || null,
+        title: title?.trim() || null,
+        description: description?.trim() || null,
+      });
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Add collection item error:", error);
+      res.status(500).json({ error: "Failed to add item" });
+    }
+  }
+);
+
+// PUT update a collection item
+app.put("/api/collections/:id/items/:itemId", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const collection = await storage.getCollection(req.params.id);
+      if (!collection) { res.status(404).json({ error: "Collection not found" }); return; }
+      const creator = await storage.getCreator(collection.creatorId);
+      if (creator?.userId !== req.user!.userId) {
+        res.status(403).json({ error: "Forbidden" }); return;
+      }
+      const updated = await storage.updateCollectionItem(req.params.itemId, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Update collection item error:", error);
+      res.status(500).json({ error: "Failed to update item" });
+    }
+  }
+);
+
+// DELETE collection item
+app.delete("/api/collections/:id/items/:itemId", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const collection = await storage.getCollection(req.params.id);
+      if (!collection) { res.status(404).json({ error: "Collection not found" }); return; }
+      const creator = await storage.getCreator(collection.creatorId);
+      if (creator?.userId !== req.user!.userId) {
+        res.status(403).json({ error: "Forbidden" }); return;
+      }
+      await storage.deleteCollectionItem(req.params.itemId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete collection item error:", error);
+      res.status(500).json({ error: "Failed to delete item" });
+    }
+  }
+);
+
+// POST reorder items
+app.post("/api/collections/:id/reorder", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const collection = await storage.getCollection(req.params.id);
+      if (!collection) { res.status(404).json({ error: "Collection not found" }); return; }
+      const creator = await storage.getCreator(collection.creatorId);
+      if (creator?.userId !== req.user!.userId) {
+        res.status(403).json({ error: "Forbidden" }); return;
+      }
+      const { orderedIds } = req.body; // array of item ids in new order
+      if (!Array.isArray(orderedIds)) {
+        res.status(400).json({ error: "orderedIds must be an array" }); return;
+      }
+      await storage.reorderCollectionItems(collection.id, orderedIds);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Reorder collection items error:", error);
+      res.status(500).json({ error: "Failed to reorder items" });
+    }
+  }
+);
+
+// POST create PPV order for a collection (bundle purchase)
+app.post("/api/payments/create-collection-ppv", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.body;
+      if (!collectionId) {
+        res.status(400).json({ error: "Missing collectionId" });
+        return;
+      }
+      const collection = await storage.getCollection(collectionId);
+      if (!collection) { res.status(404).json({ error: "Collection not found" }); return; }
+
+      const creator = await storage.getCreator(collection.creatorId);
+      if (!creator) { res.status(404).json({ error: "Creator not found" }); return; }
+
+      const amount = String(collection.price);
+      const commissionPercentage = 20;
+      const platformCommission = parseFloat(amount) * (commissionPercentage / 100);
+      const creatorEarnings = parseFloat(amount) - platformCommission;
+
+      const baseReturnUrl = process.env.PAYPAL_RETURN_URL || "http://localhost:5173/payment-success";
+      const returnUrl = `${baseReturnUrl}?collectionId=${collectionId}&creatorId=${collection.creatorId}`;
+      const cancelUrl = process.env.PAYPAL_CANCEL_URL || "http://localhost:5173/payment-cancel";
+
+      const order = await paypal.createOrder({
+        amount,
+        currency: "USD",
+        description: `Purchase collection: ${collection.title}`,
+        returnUrl,
+        cancelUrl,
+      });
+
+      const payment = await storage.createPayment({
+        consumerId: req.user!.userId,
+        creatorId: collection.creatorId,
+        collectionId,
+        videoId: null,
+        amount,
+        type: "collection",
+        status: "pending",
+        paypalOrderId: order.id,
+        creatorEarnings: creatorEarnings.toFixed(2),
+        platformCommission: platformCommission.toFixed(2),
+        commissionPercentage,
+      });
+
+      res.status(201).json({ payment, approvalUrl: order.approval_link, orderId: order.id });
+    } catch (error) {
+      console.error("Create collection PPV error:", error);
+      res.status(500).json({ error: "Failed to create payment" });
+    }
+  }
+);
+
+// POST capture collection PPV payment
+app.post("/api/payments/capture-collection-ppv", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { orderId } = req.body;
+      if (!orderId) { res.status(400).json({ error: "Missing orderId" }); return; }
+
+      const orderDetails = await paypal.captureOrder(orderId);
+      if (orderDetails.status !== "COMPLETED") {
+        res.status(400).json({ error: `Payment not completed: ${orderDetails.status}` });
+        return;
+      }
+
+      const pending = await db
+        .select()
+        .from(paymentsTable)
+        .where(eq(paymentsTable.paypalOrderId, orderId))
+        .limit(1);
+
+      if (pending.length > 0) {
+        await db
+          .update(paymentsTable)
+          .set({ status: "completed", paypalTransactionId: orderDetails.id })
+          .where(eq(paymentsTable.id, pending[0].id));
+      }
+
+      res.json({ success: true, transactionId: orderDetails.id });
+    } catch (error) {
+      console.error("Capture collection PPV error:", error);
+      res.status(500).json({ error: "Failed to capture payment" });
+    }
+  }
+);
+
+// GET check collection access
+app.get("/api/payments/check-collection/:collectionId", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const userId = req.user!.userId;
+
+      const result = await db
+        .select()
+        .from(paymentsTable)
+        .where(
+          and(
+            eq(paymentsTable.consumerId, userId),
+            eq(paymentsTable.collectionId, collectionId),
+            eq(paymentsTable.type, "collection"),
+            eq(paymentsTable.status, "completed")
+          )
+        )
+        .limit(1);
+
+      res.json({ hasAccess: result.length > 0 });
+    } catch (error) {
+      console.error("Check collection access error:", error);
+      res.status(500).json({ error: "Failed to check access" });
+    }
+  }
+);
+
+
+
+
+
+
+
 
   registerReferralRoutes(app);
 
