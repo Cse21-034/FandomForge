@@ -20,9 +20,13 @@ export default function PaymentSuccessPage() {
         const creatorId = searchParams.get("creatorId");
 
         if (orderId && videoId && creatorId) {
-          // This is a PPV payment
-          // In production, you would have stored the paymentId when creating the order
-          // For now, we'll assume the payment was captured by PayPal
+          // This is a PPV payment - need to capture it with PayPal
+          // The orderId (token) and videoId/creatorId are provided by PayPal redirect
+          // We need to create a temporary paymentId from these for capture
+          const paymentId = `${orderId}-${Date.now()}`;
+          
+          await paymentApi.capturePPVOrder(orderId, paymentId);
+          
           toast({
             title: "Payment Successful! 🎉",
             description: "You can now watch this video.",
