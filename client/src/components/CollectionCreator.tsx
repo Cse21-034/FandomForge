@@ -1,19 +1,18 @@
 import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { collectionApi } from "@/lib/api";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
   Plus, Trash2, GripVertical, Upload, X, Loader2,
-  Film, Image, FileText, Eye, EyeOff, ExternalLink,
+  Film, ImageIcon, FileText, Eye, EyeOff, ExternalLink,
   ChevronDown, ChevronUp,
 } from "lucide-react";
 
 // ── Item icon mapping ─────────────────────────────────────────────
 const ITEM_ICON: Record<string, any> = {
   video: Film,
-  image: Image,
+  image: ImageIcon,
   text: FileText,
 };
 
@@ -24,7 +23,8 @@ async function uploadToCloudinary(
   onProgress?: (pct: number) => void
 ): Promise<string> {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  // Fallback to "fandomforge_preset" — same preset used by UploadVideoDialog
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "fandomforge_preset";
   const url = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
 
   const formData = new FormData();
@@ -50,7 +50,6 @@ async function uploadToCloudinary(
   });
 }
 
-// ── CollectionCreator ─────────────────────────────────────────────────
 interface Props {
   creatorId: string;
 }
@@ -68,7 +67,6 @@ export function CollectionCreator({ creatorId }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // ── state ────────────────────────────────────────────────────────────
   const [view, setView] = useState<"list" | "create" | "edit">("list");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", description: "", type: "series", price: "9.99", thumbnailUrl: "" });
@@ -79,8 +77,7 @@ export function CollectionCreator({ creatorId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
-  // ── queries ──────────────────────────────────────────────────────────
-  const { data: collections = [], isLoading } = useQuery({
+  const { data: collectionsData = [], isLoading } = useQuery({
     queryKey: ["creator-collections", creatorId],
     queryFn: () => collectionApi.getByCreatorId(creatorId),
   });
@@ -91,10 +88,9 @@ export function CollectionCreator({ creatorId }: Props) {
     enabled: !!editingId,
   });
 
-  // ── mutations ────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: (data: any) => collectionApi.create(data),
-    onSuccess: (collection) => {
+    onSuccess: (collection: any) => {
       queryClient.invalidateQueries({ queryKey: ["creator-collections", creatorId] });
       setEditingId(collection.id);
       setView("edit");
@@ -142,7 +138,6 @@ export function CollectionCreator({ creatorId }: Props) {
     },
   });
 
-  // ── File upload handler ──────────────────────────────────────────────
   const handleFiles = useCallback(async (files: File[]) => {
     if (!editingId) return;
 
@@ -156,6 +151,8 @@ export function CollectionCreator({ creatorId }: Props) {
 
     setUploading((prev) => [...prev, ...newUploads]);
 
+    const currentItems: any[] = (editingCollection as any)?.items ?? [];
+
     await Promise.all(
       files.map(async (file, i) => {
         const uid = newUploads[i].id;
@@ -167,32 +164,28 @@ export function CollectionCreator({ creatorId }: Props) {
             );
           });
 
-          // Add item to collection
-          const items = editingCollection?.items ?? [];
           await collectionApi.addItem(editingId, {
             itemType: resourceType,
-            ...(resourceType === "video" ? {} : { imageUrl: url }),
+            ...(resourceType === "image" ? { imageUrl: url } : {}),
             title: file.name.replace(/\.[^.]+$/, ""),
-            position: items.length + 1,
+            position: currentItems.length + i + 1,
           });
 
           queryClient.invalidateQueries({ queryKey: ["collection", editingId] });
           setUploading((prev) =>
-            prev.map((u) => (u.id === uid ? { ...u, status: "done", url } : u))
+            prev.map((u) => (u.id === uid ? { ...u, status: "done" as const, url } : u))
           );
         } catch {
           setUploading((prev) =>
-            prev.map((u) => (u.id === uid ? { ...u, status: "error" } : u))
+            prev.map((u) => (u.id === uid ? { ...u, status: "error" as const } : u))
           );
         }
       })
     );
 
-    // Clear done uploads after 2s
     setTimeout(() => setUploading((prev) => prev.filter((u) => u.status !== "done")), 2000);
-  }, [editingId, editingCollection]);
+  }, [editingId, editingCollection, queryClient]);
 
-  // ── Drag & drop ──────────────────────────────────────────────────────
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
@@ -202,11 +195,10 @@ export function CollectionCreator({ creatorId }: Props) {
     if (files.length) handleFiles(files);
   };
 
-  // ── Item drag-to-reorder ─────────────────────────────────────────────
   const handleItemDragStart = (id: string) => setDraggedItemId(id);
   const handleItemDrop = async (targetId: string) => {
     if (!draggedItemId || draggedItemId === targetId || !editingId || !editingCollection) return;
-    const items: any[] = [...editingCollection.items];
+    const items: any[] = [...(editingCollection as any).items];
     const fromIdx = items.findIndex((i: any) => i.id === draggedItemId);
     const toIdx = items.findIndex((i: any) => i.id === targetId);
     if (fromIdx === -1 || toIdx === -1) return;
@@ -219,7 +211,6 @@ export function CollectionCreator({ creatorId }: Props) {
     setDraggedItemId(null);
   };
 
-  // ── Render ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -247,22 +238,21 @@ export function CollectionCreator({ creatorId }: Props) {
           </Button>
         </div>
 
-        {collections.length === 0 && (
+        {(collectionsData as any[]).length === 0 && (
           <div className="text-center py-12 rounded-2xl border border-dashed border-border bg-muted/20">
             <Film className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
             <p className="text-sm text-muted-foreground mb-3">No collections yet</p>
-            <Button size="sm" variant="outline" className="rounded-full"
-              onClick={() => setView("create")}>
+            <Button size="sm" variant="outline" className="rounded-full" onClick={() => setView("create")}>
               Create your first collection
             </Button>
           </div>
         )}
 
         <div className="space-y-3">
-          {(collections as any[]).map((col) => (
+          {(collectionsData as any[]).map((col) => (
             <div key={col.id} className="bg-card border border-card-border rounded-2xl p-4 flex items-center gap-3">
               {col.thumbnailUrl ? (
-                <img src={col.thumbnailUrl} className="h-12 w-20 object-cover rounded-xl flex-shrink-0" />
+                <img src={col.thumbnailUrl} className="h-12 w-20 object-cover rounded-xl flex-shrink-0" alt={col.title} />
               ) : (
                 <div className="h-12 w-20 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
                   <Film className="h-5 w-5 text-muted-foreground/40" />
@@ -372,11 +362,11 @@ export function CollectionCreator({ creatorId }: Props) {
   }
 
   // ── EDIT VIEW ────────────────────────────────────────────────────────
-  const items: any[] = editingCollection?.items ?? [];
+  const items: any[] = (editingCollection as any)?.items ?? [];
+  const ec = editingCollection as any;
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <button onClick={() => { setView("list"); setEditingId(null); }}
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -391,13 +381,10 @@ export function CollectionCreator({ creatorId }: Props) {
           <Button
             size="sm"
             className="rounded-full h-8 text-xs text-white border-none"
-            style={{ background: editingCollection?.isPublished ? "hsl(var(--muted))" : "hsl(var(--primary))" }}
-            onClick={() => updateMutation.mutate({
-              id: editingId!,
-              data: { isPublished: !editingCollection?.isPublished }
-            })}
+            style={{ background: ec?.isPublished ? "hsl(var(--muted))" : "hsl(var(--primary))" }}
+            onClick={() => updateMutation.mutate({ id: editingId!, data: { isPublished: !ec?.isPublished } })}
           >
-            {editingCollection?.isPublished
+            {ec?.isPublished
               ? <><EyeOff className="h-3 w-3 mr-1" />Unpublish</>
               : <><Eye className="h-3 w-3 mr-1" />Publish</>
             }
@@ -406,13 +393,13 @@ export function CollectionCreator({ creatorId }: Props) {
       </div>
 
       <div>
-        <p className="font-bold text-base">{editingCollection?.title}</p>
-        <p className="text-xs text-muted-foreground">{items.length} items · ${editingCollection?.price}</p>
+        <p className="font-bold text-base">{ec?.title}</p>
+        <p className="text-xs text-muted-foreground">{items.length} items · ${ec?.price}</p>
       </div>
 
       {/* Batch upload drop zone */}
       <div
-        className={`border-2 border-dashed rounded-2xl p-6 text-center transition-colors ${
+        className={`border-2 border-dashed rounded-2xl p-6 text-center transition-colors cursor-pointer ${
           dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
         }`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -442,16 +429,15 @@ export function CollectionCreator({ creatorId }: Props) {
         <div className="space-y-2">
           {uploading.map((u) => (
             <div key={u.id} className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl">
-              {u.type === "video" ? <Film className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                : <Image className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
+              {u.type === "video"
+                ? <Film className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                : <ImageIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
               <div className="flex-1 min-w-0">
                 <p className="text-xs truncate">{u.name}</p>
                 {u.status === "uploading" && (
                   <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${u.progress}%`, background: "hsl(var(--primary))" }}
-                    />
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${u.progress}%`, background: "hsl(var(--primary))" }} />
                   </div>
                 )}
               </div>
@@ -506,7 +492,7 @@ export function CollectionCreator({ creatorId }: Props) {
         )}
       </div>
 
-      {/* Items list with drag reorder */}
+      {/* Items list */}
       {items.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -541,9 +527,8 @@ export function CollectionCreator({ creatorId }: Props) {
                     {idx === 0 && <span className="ml-1 text-primary">· free preview</span>}
                   </p>
                 </div>
-                {/* Thumbnail preview */}
                 {item.itemType === "image" && item.imageUrl && (
-                  <img src={item.imageUrl} className="h-8 w-12 object-cover rounded-lg flex-shrink-0" />
+                  <img src={item.imageUrl} className="h-8 w-12 object-cover rounded-lg flex-shrink-0" alt="" />
                 )}
                 <Button
                   size="sm"

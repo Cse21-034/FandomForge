@@ -81,6 +81,43 @@ export const videos = pgTable("videos", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// ── collections ─────────────────────────────────────────────────────
+// IMPORTANT: collections must be defined BEFORE payments
+// because payments has a FK to collections.id
+export const collections = pgTable("collections", {
+  // FIX: use varchar to match creators.id type (was uuid, causing FK type mismatch)
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id")
+    .notNull()
+    .references(() => creators.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("series"), // "series" | "course" | "gallery"
+  price: decimal("price", { precision: 10, scale: 2 }).notNull().default("9.99"),
+  thumbnailUrl: text("thumbnail_url"),
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ── collection_items ─────────────────────────────────────────────────
+export const collectionItems = pgTable("collection_items", {
+  // FIX: use varchar to be consistent with other id columns
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: varchar("collection_id")
+    .notNull()
+    .references(() => collections.id, { onDelete: "cascade" }),
+  position: integer("position").notNull().default(0),
+  itemType: text("item_type").notNull().default("video"), // "video" | "image" | "text"
+  // FIX: videoId uses varchar to match videos.id (was uuid, causing FK type mismatch)
+  videoId: varchar("video_id").references(() => videos.id, { onDelete: "set null" }),
+  imageUrl: text("image_url"),
+  textContent: text("text_content"),
+  title: text("title"),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Subscriptions Table
 export const subscriptions = pgTable("subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -100,6 +137,7 @@ export const subscriptions = pgTable("subscriptions", {
 });
 
 // Payments Table
+// FIX: collections is now defined above this, so the FK reference works correctly
 export const payments = pgTable("payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   consumerId: varchar("consumer_id")
@@ -111,7 +149,8 @@ export const payments = pgTable("payments", {
   videoId: varchar("video_id").references(() => videos.id, {
     onDelete: "set null",
   }),
-  collectionId: uuid("collection_id").references(() => collections.id, {
+  // FIX: collectionId is now varchar to match collections.id type
+  collectionId: varchar("collection_id").references(() => collections.id, {
     onDelete: "set null",
   }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
@@ -232,7 +271,81 @@ export const directMessages = pgTable("direct_messages", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-// Zod Schemas
+// ── Referral System ──────────────────────────────────────────────────
+export const referralEventTypeEnum = pgEnum("referral_event_type", [
+  "click",
+  "register",
+]);
+
+export const withdrawalStatusEnum = pgEnum("withdrawal_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "paid",
+]);
+
+export const referralCodes = pgTable("referral_codes", {
+  id:                  varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:              varchar("user_id").notNull().unique()
+                         .references(() => users.id, { onDelete: "cascade" }),
+  code:                text("code").notNull().unique(),
+  totalClicks:         integer("total_clicks").notNull().default(0),
+  totalRegistrations:  integer("total_registrations").notNull().default(0),
+  createdAt:           timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const referralEvents = pgTable("referral_events", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referrerId:      varchar("referrer_id").notNull()
+                     .references(() => users.id, { onDelete: "cascade" }),
+  referralCodeId:  varchar("referral_code_id").notNull()
+                     .references(() => referralCodes.id, { onDelete: "cascade" }),
+  referredUserId:  varchar("referred_user_id")
+                     .references(() => users.id, { onDelete: "set null" }),
+  eventType:       referralEventTypeEnum("event_type").notNull(),
+  pointsEarned:    decimal("points_earned", { precision: 10, scale: 2 }).notNull(),
+  ipAddress:       text("ip_address"),
+  createdAt:       timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const pointsLedger = pgTable("points_ledger", {
+  id:               varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:           varchar("user_id").notNull()
+                      .references(() => users.id, { onDelete: "cascade" }),
+  amount:           decimal("amount",       { precision: 10, scale: 2 }).notNull(),
+  balanceAfter:     decimal("balance_after",{ precision: 10, scale: 2 }).notNull(),
+  description:      text("description").notNull(),
+  referralEventId:  varchar("referral_event_id")
+                      .references(() => referralEvents.id, { onDelete: "set null" }),
+  withdrawalId:     varchar("withdrawal_id"),
+  createdAt:        timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const pointsBalances = pgTable("points_balances", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:          varchar("user_id").notNull().unique()
+                     .references(() => users.id, { onDelete: "cascade" }),
+  balance:         decimal("balance",         { precision: 10, scale: 2 }).notNull().default("0"),
+  totalEarned:     decimal("total_earned",    { precision: 10, scale: 2 }).notNull().default("0"),
+  totalWithdrawn:  decimal("total_withdrawn", { precision: 10, scale: 2 }).notNull().default("0"),
+  updatedAt:       timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const withdrawalRequests = pgTable("withdrawal_requests", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:          varchar("user_id").notNull()
+                     .references(() => users.id, { onDelete: "cascade" }),
+  pointsAmount:    decimal("points_amount", { precision: 10, scale: 2 }).notNull(),
+  usdAmount:       decimal("usd_amount",    { precision: 10, scale: 2 }).notNull(),
+  status:          withdrawalStatusEnum("status").notNull().default("pending"),
+  paymentMethod:   text("payment_method").notNull(),
+  paymentDetails:  text("payment_details").notNull(),
+  adminNote:       text("admin_note"),
+  createdAt:       timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt:       timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// ── Zod Schemas ──────────────────────────────────────────────────────
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   email: true,
@@ -299,7 +412,7 @@ export const insertDirectMessageSchema = createInsertSchema(directMessages).pick
   content: true,
 });
 
-// Types
+// ── Types ────────────────────────────────────────────────────────────
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Creator = typeof creators.$inferSelect;
@@ -311,135 +424,12 @@ export type Comment = typeof comments.$inferSelect;
 export type WatchlistItem = typeof watchlist.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type DirectMessage = typeof directMessages.$inferSelect;
-
-// =====================================================================
-// Paste this block at the BOTTOM of shared/schema.ts
-// (after all existing table definitions and type exports)
-// =====================================================================
-
-// ── New enums ─────────────────────────────────────────────────────────
-export const referralEventTypeEnum = pgEnum("referral_event_type", [
-  "click",     // visitor clicked a referral link  (+0.20 pts)
-  "register",  // clicked visitor then signed up   (+1.00 pt)
-]);
-
-export const withdrawalStatusEnum = pgEnum("withdrawal_status", [
-  "pending",
-  "approved",
-  "rejected",
-  "paid",
-]);
-
-// ── referral_codes  (one row per user) ───────────────────────────────
-export const referralCodes = pgTable("referral_codes", {
-  id:                  varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:              varchar("user_id").notNull().unique()
-                         .references(() => users.id, { onDelete: "cascade" }),
-  code:                text("code").notNull().unique(),
-  totalClicks:         integer("total_clicks").notNull().default(0),
-  totalRegistrations:  integer("total_registrations").notNull().default(0),
-  createdAt:           timestamp("created_at").notNull().default(sql`now()`),
-});
-
-// ── referral_events  (one row per click or registration earned) ───────
-export const referralEvents = pgTable("referral_events", {
-  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  referrerId:      varchar("referrer_id").notNull()
-                     .references(() => users.id, { onDelete: "cascade" }),
-  referralCodeId:  varchar("referral_code_id").notNull()
-                     .references(() => referralCodes.id, { onDelete: "cascade" }),
-  referredUserId:  varchar("referred_user_id")           // null for click events
-                     .references(() => users.id, { onDelete: "set null" }),
-  eventType:       referralEventTypeEnum("event_type").notNull(),
-  pointsEarned:    decimal("points_earned", { precision: 10, scale: 2 }).notNull(),
-  ipAddress:       text("ip_address"),
-  createdAt:       timestamp("created_at").notNull().default(sql`now()`),
-});
-
-// ── points_ledger  (full debit / credit audit trail) ──────────────────
-export const pointsLedger = pgTable("points_ledger", {
-  id:               varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:           varchar("user_id").notNull()
-                      .references(() => users.id, { onDelete: "cascade" }),
-  amount:           decimal("amount",       { precision: 10, scale: 2 }).notNull(),
-  balanceAfter:     decimal("balance_after",{ precision: 10, scale: 2 }).notNull(),
-  description:      text("description").notNull(),
-  referralEventId:  varchar("referral_event_id")
-                      .references(() => referralEvents.id, { onDelete: "set null" }),
-  withdrawalId:     varchar("withdrawal_id"),  // soft FK — no circular ref
-  createdAt:        timestamp("created_at").notNull().default(sql`now()`),
-});
-
-// ── points_balances  (denormalised fast read) ─────────────────────────
-export const pointsBalances = pgTable("points_balances", {
-  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:          varchar("user_id").notNull().unique()
-                     .references(() => users.id, { onDelete: "cascade" }),
-  balance:         decimal("balance",         { precision: 10, scale: 2 }).notNull().default("0"),
-  totalEarned:     decimal("total_earned",    { precision: 10, scale: 2 }).notNull().default("0"),
-  totalWithdrawn:  decimal("total_withdrawn", { precision: 10, scale: 2 }).notNull().default("0"),
-  updatedAt:       timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-// ── withdrawal_requests ───────────────────────────────────────────────
-export const withdrawalRequests = pgTable("withdrawal_requests", {
-  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId:          varchar("user_id").notNull()
-                     .references(() => users.id, { onDelete: "cascade" }),
-  pointsAmount:    decimal("points_amount", { precision: 10, scale: 2 }).notNull(),
-  usdAmount:       decimal("usd_amount",    { precision: 10, scale: 2 }).notNull(),
-  status:          withdrawalStatusEnum("status").notNull().default("pending"),
-  paymentMethod:   text("payment_method").notNull(),   // "paypal" | "bank" | "mobile_money"
-  paymentDetails:  text("payment_details").notNull(),  // JSON string
-  adminNote:       text("admin_note"),
-  createdAt:       timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt:       timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-// ── New types ─────────────────────────────────────────────────────────
+export type Collection = typeof collections.$inferSelect;
+export type InsertCollection = typeof collections.$inferInsert;
+export type CollectionItem = typeof collectionItems.$inferSelect;
+export type InsertCollectionItem = typeof collectionItems.$inferInsert;
 export type ReferralCode     = typeof referralCodes.$inferSelect;
 export type ReferralEvent    = typeof referralEvents.$inferSelect;
 export type PointsLedger     = typeof pointsLedger.$inferSelect;
 export type PointsBalance    = typeof pointsBalances.$inferSelect;
 export type WithdrawalRequest = typeof withdrawalRequests.$inferSelect;
-
-// ================================================================
-// ── collections ─────────────────────────────────────────────────────
-export const collections = pgTable("collections", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  creatorId: uuid("creator_id").notNull().references(() => creators.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  description: text("description"),
-  type: text("type").notNull().default("series"), // "series" | "course" | "gallery"
-  price: decimal("price", { precision: 10, scale: 2 }).notNull().default("9.99"),
-  thumbnailUrl: text("thumbnail_url"),
-  isPublished: boolean("is_published").notNull().default(false),
-  // Episode 1 free — trailer model
-  // item at position=1 is always free, rest require payment
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-// ── collection_items ─────────────────────────────────────────────────
-export const collectionItems = pgTable("collection_items", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  collectionId: uuid("collection_id").notNull().references(() => collections.id, { onDelete: "cascade" }),
-  position: integer("position").notNull().default(0), // 1-based sort order
-  itemType: text("item_type").notNull().default("video"), // "video" | "image" | "text"
-  // video item
-  videoId: uuid("video_id").references(() => videos.id, { onDelete: "set null" }),
-  // image item
-  imageUrl: text("image_url"),
-  // text/post item
-  textContent: text("text_content"),
-  // shared
-  title: text("title"),       // overrides video title if set
-  description: text("description"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-// ── Types ────────────────────────────────────────────────────────────
-export type Collection = typeof collections.$inferSelect;
-export type InsertCollection = typeof collections.$inferInsert;
-export type CollectionItem = typeof collectionItems.$inferSelect;
-export type InsertCollectionItem = typeof collectionItems.$inferInsert;
