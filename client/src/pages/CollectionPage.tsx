@@ -6,14 +6,12 @@ import { useToast } from "@/hooks/use-toast";
 import { collectionApi, collectionPaymentApi } from "@/lib/api";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  ArrowLeft, Lock, Unlock, Play, Image, FileText,
+  ArrowLeft, Lock, Play, Image, FileText,
   ChevronLeft, ChevronRight, CheckCircle, Loader2,
   BookOpen, Film, LayoutGrid,
 } from "lucide-react";
 
-// ── helpers ──────────────────────────────────────────────────────────
 const TYPE_ICON: Record<string, any> = { series: Film, course: BookOpen, gallery: LayoutGrid };
 const ITEM_ICON: Record<string, any> = { video: Play, image: Image, text: FileText };
 
@@ -48,22 +46,18 @@ export default function CollectionPage() {
     enabled: !!collectionId,
   });
 
-  // ── FIX: Check access and refetch collection if access granted ──
   useEffect(() => {
     if (!collection || !collectionId) return;
 
-    // If server already confirmed access, set it
     if (collection.isOwner || collection.hasAccess) {
       setHasAccess(true);
       return;
     }
 
-    // Otherwise check payment records
     if (isAuthenticated) {
       checkCollectionAccess(collectionId).then((access) => {
         if (access) {
           setHasAccess(true);
-          // ── CRITICAL: Refetch so server returns full videoUrls ──
           queryClient.invalidateQueries({ queryKey: ["collection", collectionId] });
           refetch();
         }
@@ -75,15 +69,10 @@ export default function CollectionPage() {
   const activeItem = items[activeIndex];
   const isOwnerOrHasAccess = collection?.isOwner || hasAccess;
 
-  const canViewItem = (item: any) =>
-    isOwnerOrHasAccess || item.position === 1;
-
-  // ── FIX: Video player uses server-returned videoUrl ──
-  // No need to check canViewItem for videoUrl since server already
-  // strips it for locked items and returns it for unlocked items
+  // ── FIX 1: Trust isOwnerOrHasAccess even if item still shows locked ──
   const getVideoUrl = (item: any) => {
-    if (item.locked) return undefined;       // server said locked
-    return item.videoUrl || undefined;        // server returned the url
+    if (item.locked && !isOwnerOrHasAccess) return undefined;
+    return item.videoUrl || undefined;
   };
 
   const handleUnlock = async () => {
@@ -101,17 +90,19 @@ export default function CollectionPage() {
     }
   };
 
+  // ── FIX 2: Allow navigation if user has access even if item.locked ──
   const goTo = (index: number) => {
     if (index < 0 || index >= items.length) return;
     const target = items[index];
-    // ── FIX: Check server-returned locked field, not client canViewItem ──
-    if (target.locked) {
-      toast({ 
-        title: `Unlock the full collection to continue`, 
-        description: `$${collection?.price} for all ${items.length} items` 
+
+    if (target.locked && !isOwnerOrHasAccess) {
+      toast({
+        title: "Unlock the full collection to continue",
+        description: `$${collection?.price} for all ${items.length} items`,
       });
       return;
     }
+
     setActiveIndex(index);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -152,70 +143,72 @@ export default function CollectionPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
 
-            {/* ── Video Player ── */}
             {activeItem ? (
               <div className="rounded-2xl overflow-hidden bg-card border border-card-border">
+
                 {activeItem.itemType === "video" && (
                   <VideoPlayer
-                    isLocked={!!activeItem.locked}
-                    videoUrl={getVideoUrl(activeItem)}  // ← USE getVideoUrl
+                    key={activeItem.id}  {/* ── FIX 3: Force remount on item change ── */}
+                    isLocked={!!activeItem.locked && !isOwnerOrHasAccess}
+                    videoUrl={getVideoUrl(activeItem)}
                     thumbnail={activeItem.thumbnailUrl}
                     onUnlock={handleUnlock}
                   />
                 )}
 
-                {activeItem.itemType === "image" && !activeItem.locked && (
-                  <div className="aspect-video bg-black flex items-center justify-center">
-                    <img
-                      src={activeItem.imageUrl}
-                      alt={activeItem.title || ""}
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  </div>
+                {activeItem.itemType === "image" && (
+                  !activeItem.locked || isOwnerOrHasAccess ? (
+                    <div className="aspect-video bg-black flex items-center justify-center">
+                      <img
+                        src={activeItem.imageUrl}
+                        alt={activeItem.title || ""}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-video bg-muted flex flex-col items-center justify-center gap-3">
+                      <Lock className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Unlock to view this image
+                      </p>
+                      <Button
+                        onClick={handleUnlock}
+                        className="rounded-full"
+                        style={{ background: "hsl(var(--primary))" }}
+                      >
+                        Unlock for ${collection.price}
+                      </Button>
+                    </div>
+                  )
                 )}
 
-                {activeItem.itemType === "image" && activeItem.locked && (
-                  <div className="aspect-video bg-muted flex flex-col items-center justify-center gap-3">
-                    <Lock className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Unlock to view this image
-                    </p>
-                    <Button
-                      onClick={handleUnlock}
-                      className="rounded-full"
-                      style={{ background: "hsl(var(--primary))" }}
-                    >
-                      Unlock for ${collection.price}
-                    </Button>
-                  </div>
+                {activeItem.itemType === "text" && (
+                  !activeItem.locked || isOwnerOrHasAccess ? (
+                    <div className="p-6 min-h-[300px]">
+                      {activeItem.title && (
+                        <h2 className="text-xl font-bold mb-4">{activeItem.title}</h2>
+                      )}
+                      <p className="whitespace-pre-wrap leading-relaxed text-sm">
+                        {activeItem.textContent}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-6 min-h-[200px] flex flex-col items-center justify-center gap-3">
+                      <Lock className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Unlock to read this post
+                      </p>
+                      <Button
+                        onClick={handleUnlock}
+                        className="rounded-full"
+                        style={{ background: "hsl(var(--primary))" }}
+                      >
+                        Unlock for ${collection.price}
+                      </Button>
+                    </div>
+                  )
                 )}
 
-                {activeItem.itemType === "text" && !activeItem.locked && (
-                  <div className="p-6 min-h-[300px]">
-                    {activeItem.title && (
-                      <h2 className="text-xl font-bold mb-4">{activeItem.title}</h2>
-                    )}
-                    <p className="whitespace-pre-wrap leading-relaxed text-sm">
-                      {activeItem.textContent}
-                    </p>
-                  </div>
-                )}
-
-                {activeItem.itemType === "text" && activeItem.locked && (
-                  <div className="p-6 min-h-[200px] flex flex-col items-center justify-center gap-3">
-                    <Lock className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Unlock to read this post
-                    </p>
-                    <Button
-                      onClick={handleUnlock}
-                      className="rounded-full"
-                      style={{ background: "hsl(var(--primary))" }}
-                    >
-                      Unlock for ${collection.price}
-                    </Button>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="aspect-video rounded-2xl bg-muted flex items-center justify-center">
@@ -301,7 +294,6 @@ export default function CollectionPage() {
               </div>
             )}
 
-            {/* Access confirmed */}
             {isOwnerOrHasAccess && !collection.isOwner && (
               <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                 <CheckCircle className="h-4 w-4" />
@@ -354,6 +346,7 @@ export default function CollectionPage() {
               {items.map((item: any, index: number) => {
                 const ItemIcon = ITEM_ICON[item.itemType] || Play;
                 const isActive = index === activeIndex;
+                const isItemLocked = item.locked && !isOwnerOrHasAccess;
 
                 return (
                   <button
@@ -380,11 +373,7 @@ export default function CollectionPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p
-                        className={`text-sm font-medium truncate ${
-                          isActive ? "text-primary" : ""
-                        }`}
-                      >
+                      <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : ""}`}>
                         {item.title || `Episode ${item.position}`}
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5">
@@ -406,11 +395,11 @@ export default function CollectionPage() {
                       </div>
                     </div>
 
-                    {/* ── FIX: Use server locked field ── */}
-                    {item.locked && (
+                    {/* ── FIX 4: Show lock only if truly locked ── */}
+                    {isItemLocked && (
                       <Lock className="flex-shrink-0 h-3.5 w-3.5 text-muted-foreground" />
                     )}
-                    {!item.locked && isActive && (
+                    {!isItemLocked && isActive && (
                       <CheckCircle className="flex-shrink-0 h-3.5 w-3.5 text-green-500" />
                     )}
                   </button>
