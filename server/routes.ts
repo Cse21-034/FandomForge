@@ -16,7 +16,7 @@ import PayPalClient from "./paypal";
 import { registerReferralRoutes } from "./referral-routes";
 import { v2 as cloudinary } from "cloudinary";
 import { db } from "./db";
-import {comments as commentsTable, watchlist, likes, shares, videoViews, videos as videosTable, payments as paymentsTable, collections as collectionsTable, collectionItems as collectionItemsTable } from "@shared/schema";
+import {comments, watchlist, likes, shares, videoViews, videos as videosTable, payments as paymentsTable, collections as collectionsTable, collectionItems as collectionItemsTable } from "@shared/schema";
 
 
 import { eq, and, sql } from "drizzle-orm";
