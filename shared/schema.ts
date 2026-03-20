@@ -8,6 +8,7 @@ import {
   timestamp,
   boolean,
   pgEnum,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -108,6 +109,9 @@ export const payments = pgTable("payments", {
     .notNull()
     .references(() => creators.id, { onDelete: "cascade" }),
   videoId: varchar("video_id").references(() => videos.id, {
+    onDelete: "set null",
+  }),
+  collectionId: uuid("collection_id").references(() => collections.id, {
     onDelete: "set null",
   }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
@@ -398,3 +402,44 @@ export type ReferralEvent    = typeof referralEvents.$inferSelect;
 export type PointsLedger     = typeof pointsLedger.$inferSelect;
 export type PointsBalance    = typeof pointsBalances.$inferSelect;
 export type WithdrawalRequest = typeof withdrawalRequests.$inferSelect;
+
+// ================================================================
+// ── collections ─────────────────────────────────────────────────────
+export const collections = pgTable("collections", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: uuid("creator_id").notNull().references(() => creators.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("series"), // "series" | "course" | "gallery"
+  price: decimal("price", { precision: 10, scale: 2 }).notNull().default("9.99"),
+  thumbnailUrl: text("thumbnail_url"),
+  isPublished: boolean("is_published").notNull().default(false),
+  // Episode 1 free — trailer model
+  // item at position=1 is always free, rest require payment
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ── collection_items ─────────────────────────────────────────────────
+export const collectionItems = pgTable("collection_items", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: uuid("collection_id").notNull().references(() => collections.id, { onDelete: "cascade" }),
+  position: integer("position").notNull().default(0), // 1-based sort order
+  itemType: text("item_type").notNull().default("video"), // "video" | "image" | "text"
+  // video item
+  videoId: uuid("video_id").references(() => videos.id, { onDelete: "set null" }),
+  // image item
+  imageUrl: text("image_url"),
+  // text/post item
+  textContent: text("text_content"),
+  // shared
+  title: text("title"),       // overrides video title if set
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ── Types ────────────────────────────────────────────────────────────
+export type Collection = typeof collections.$inferSelect;
+export type InsertCollection = typeof collections.$inferInsert;
+export type CollectionItem = typeof collectionItems.$inferSelect;
+export type InsertCollectionItem = typeof collectionItems.$inferInsert;

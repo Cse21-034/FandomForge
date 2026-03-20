@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { UploadVideoDialog } from "@/components/UploadVideoDialog";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/StatCard";
+import { CollectionCreator } from "@/components/CollectionCreator";
 import { useLocation } from "wouter";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -43,6 +44,7 @@ export default function CreatorDashboardUpdated() {
   const { user, isCreator, loading, logout } = useAuth();
   const [_location, navigate] = useLocation();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"videos" | "collections">("videos");
 
   const creatorId = user?.creator?.id;
 
@@ -230,7 +232,7 @@ export default function CreatorDashboardUpdated() {
         </div>
 
         {/* Subscriber growth */}
-        {subsChartData.length > 0 && (
+        {activeTab === "videos" && subsChartData.length > 0 && (
           <div className="bg-card border border-card-border rounded-3xl p-5 mb-6">
             <div className="flex items-center gap-2 mb-5">
               <Users className="w-4 h-4" style={{ color: "hsl(var(--primary))" }} />
@@ -248,7 +250,32 @@ export default function CreatorDashboardUpdated() {
           </div>
         )}
 
-        {/* Videos list */}
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6 border-b border-border">
+          <button
+            onClick={() => setActiveTab("videos")}
+            className={`px-4 py-2 font-medium text-sm transition-colors ${
+              activeTab === "videos"
+                ? "text-primary border-b-2 border-primary -mb-px"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Videos
+          </button>
+          <button
+            onClick={() => setActiveTab("collections")}
+            className={`px-4 py-2 font-medium text-sm transition-colors ${
+              activeTab === "collections"
+                ? "text-primary border-b-2 border-primary -mb-px"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Collections
+          </button>
+        </div>
+
+        {/* Videos tab */}
+        {activeTab === "videos" && (
         <div className="bg-card border border-card-border rounded-3xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <h3 className="font-display font-semibold">Your Videos</h3>
@@ -355,6 +382,12 @@ export default function CreatorDashboardUpdated() {
             </div>
           )}
         </div>
+        )}
+
+        {/* Collections tab */}
+        {activeTab === "collections" && creatorId && (
+          <CollectionCreator creatorId={creatorId} />
+        )}
       </div>
 
       <UploadVideoDialog

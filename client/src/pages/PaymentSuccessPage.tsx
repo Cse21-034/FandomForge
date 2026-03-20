@@ -29,8 +29,9 @@ export default function PaymentSuccessPage() {
         // Our custom params we appended to the return URL
         const videoId = searchParams.get("videoId");
         const creatorId = searchParams.get("creatorId");
+        const collectionId = searchParams.get("collectionId");
 
-        console.log("Payment success params:", { token, payerId, subscriptionId, videoId, creatorId });
+        console.log("Payment success params:", { token, payerId, subscriptionId, videoId, creatorId, collectionId });
 
         if (subscriptionId && creatorId) {
           // ── Subscription flow ──
@@ -44,6 +45,24 @@ export default function PaymentSuccessPage() {
 
           setStatus("success");
           setTimeout(() => navigate("/browse"), 2500);
+
+        } else if (collectionId && token) {
+          // ── Collection purchase flow ──
+          // token = PayPal order ID, we need to capture it
+          console.log("Capturing collection order:", token);
+          
+          await paymentApi.captureCollectionOrder(token);
+          
+          toast({
+            title: "Collection Purchased! 🎉",
+            description: "You now have access to this collection.",
+          });
+
+          setStatus("success");
+          
+          setTimeout(() => {
+            navigate(`/collection/${collectionId}`);
+          }, 2500);
 
         } else if (token && payerId) {
           // ── PPV (one-time payment) flow ──

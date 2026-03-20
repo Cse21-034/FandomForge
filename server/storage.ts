@@ -21,9 +21,11 @@ import {
   watchlist,
   notifications,
   directMessages,
+  collections,
+  collectionItems,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -114,6 +116,19 @@ export interface IStorage {
   getUserConversations(userId: string): Promise<DirectMessage[]>;
   markMessageAsRead(messageId: string): Promise<DirectMessage | undefined>;
   getUnreadMessageCount(userId: string): Promise<number>;
+
+  // Collections
+  createCollection(data: any): Promise<any>;
+  getCollection(id: string): Promise<any | undefined>;
+  getCollectionsByCreatorId(creatorId: string): Promise<any[]>;
+  updateCollection(id: string, updates: Partial<any>): Promise<any | undefined>;
+  deleteCollection(id: string): Promise<boolean>;
+  getCollectionWithItems(id: string): Promise<(any & { items: any[] }) | undefined>;
+
+  createCollectionItem(data: any): Promise<any>;
+  updateCollectionItem(id: string, updates: Partial<any>): Promise<any | undefined>;
+  deleteCollectionItem(id: string): Promise<boolean>;
+  reorderCollectionItems(collectionId: string, orderedIds: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -599,6 +614,88 @@ async getCreatorSubscriptions(creatorId: string): Promise<Subscription[]> {
       .select()
       .from(creatorPayouts)
       .where(eq(creatorPayouts.status, "pending"));
+  }
+
+  // Collections
+  async createCollection(data: any): Promise<any> {
+    const result = await db.insert(collections).values(data).returning();
+    return result[0];
+  }
+
+  async getCollection(id: string): Promise<any | undefined> {
+    const result = await db.select().from(collections).where(eq(collections.id, id));
+    return result[0];
+  }
+
+  async getCollectionsByCreatorId(creatorId: string): Promise<any[]> {
+    return db
+      .select()
+      .from(collections)
+      .where(eq(collections.creatorId, creatorId))
+      .orderBy(collections.createdAt);
+  }
+
+  async updateCollection(id: string, updates: any): Promise<any | undefined> {
+    const result = await db
+      .update(collections)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(collections.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCollection(id: string): Promise<boolean> {
+    await db.delete(collections).where(eq(collections.id, id));
+    return true;
+  }
+
+  async getCollectionWithItems(id: string): Promise<any | undefined> {
+    const collection = await this.getCollection(id);
+    if (!collection) return undefined;
+
+    const items = await db
+      .select()
+      .from(collectionItems)
+      .where(eq(collectionItems.collectionId, id))
+      .orderBy(asc(collectionItems.position));
+
+    return { ...collection, items };
+  }
+
+  async createCollectionItem(data: any): Promise<any> {
+    const result = await db.insert(collectionItems).values(data).returning();
+    return result[0];
+  }
+
+  async updateCollectionItem(id: string, updates: any): Promise<any | undefined> {
+    const result = await db
+      .update(collectionItems)
+      .set(updates)
+      .where(eq(collectionItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCollectionItem(id: string): Promise<boolean> {
+    await db.delete(collectionItems).where(eq(collectionItems.id, id));
+    return true;
+  }
+
+  async reorderCollectionItems(collectionId: string, orderedIds: string[]): Promise<void> {
+    // Update each item's position based on its index in the orderedIds array
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        db
+          .update(collectionItems)
+          .set({ position: index + 1 })
+          .where(
+            and(
+              eq(collectionItems.id, id),
+              eq(collectionItems.collectionId, collectionId)
+            )
+          )
+      )
+    );
   }
 }
 

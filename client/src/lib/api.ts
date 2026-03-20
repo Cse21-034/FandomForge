@@ -200,6 +200,10 @@ export const paymentApi = {
   cancelSubscription: (subscriptionId: string) =>
     apiRequest(`/payments/cancel-subscription/${subscriptionId}`, { method: "POST" }),
 
+  // Collection purchases
+  captureCollectionOrder: (orderId: string) =>
+    apiRequest("/payments/capture-collection-ppv", { method: "POST", body: { orderId } }),
+
   // Creator Earnings
   getCreatorEarnings: (creatorId: string) =>
     apiRequest(`/creator/${creatorId}/earnings`, { silentOn401: true }),
@@ -317,4 +321,79 @@ export const referralApi = {
       method: "POST",
       body: { videoId, pointsCost },
     }),
+};
+
+// ================================================================
+// ADD TO client/src/lib/api.ts
+// Add this collectionApi object alongside your existing api objects
+// ================================================================
+
+export const collectionApi = {
+  // Public
+  getAll: () =>
+    apiRequest("/collections"),
+
+  getById: (id: string) =>
+    apiRequest(`/collections/${id}`),
+
+  // Creator
+  getByCreatorId: (creatorId: string) =>
+    apiRequest(`/collections/creator/${creatorId}`),
+
+  create: (data: {
+    title: string;
+    description?: string;
+    type?: string;
+    price?: string;
+    thumbnailUrl?: string;
+  }) => apiRequest("/collections", { method: "POST", body: data }),
+
+  update: (id: string, data: Partial<{
+    title: string;
+    description: string;
+    type: string;
+    price: string;
+    thumbnailUrl: string;
+    isPublished: boolean;
+  }>) => apiRequest(`/collections/${id}`, { method: "PUT", body: data }),
+
+  delete: (id: string) =>
+    apiRequest(`/collections/${id}`, { method: "DELETE" }),
+
+  addItem: (collectionId: string, data: {
+    itemType: "video" | "image" | "text";
+    videoId?: string;
+    imageUrl?: string;
+    textContent?: string;
+    title?: string;
+    description?: string;
+    position?: number;
+  }) => apiRequest(`/collections/${collectionId}/items`, { method: "POST", body: data }),
+
+  updateItem: (collectionId: string, itemId: string, data: any) =>
+    apiRequest(`/collections/${collectionId}/items/${itemId}`, { method: "PUT", body: data }),
+
+  deleteItem: (collectionId: string, itemId: string) =>
+    apiRequest(`/collections/${collectionId}/items/${itemId}`, { method: "DELETE" }),
+
+  reorder: (collectionId: string, orderedIds: string[]) =>
+    apiRequest(`/collections/${collectionId}/reorder`, { method: "POST", body: { orderedIds } }),
+
+  publish: (id: string) =>
+    apiRequest(`/collections/${id}`, { method: "PUT", body: { isPublished: true } }),
+
+  unpublish: (id: string) =>
+    apiRequest(`/collections/${id}`, { method: "PUT", body: { isPublished: false } }),
+};
+
+// Add to paymentApi:
+export const collectionPaymentApi = {
+  createOrder: (collectionId: string) =>
+    apiRequest("/payments/create-collection-ppv", { method: "POST", body: { collectionId } }),
+
+  captureOrder: (orderId: string) =>
+    apiRequest("/payments/capture-collection-ppv", { method: "POST", body: { orderId } }),
+
+  checkAccess: (collectionId: string) =>
+    apiRequest(`/payments/check-collection/${collectionId}`),
 };
