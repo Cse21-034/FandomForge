@@ -364,11 +364,9 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
     let userCreatorId: string | null = null;
 
     if (token) {
-      const { verifyToken } = await import("./auth");
       const decoded = verifyToken(token);
       if (decoded) {
         userId = decoded.userId;
-        // Check if this user is a creator and get their creatorId
         const creator = await storage.getCreatorByUserId(decoded.userId);
         if (creator) userCreatorId = creator.id;
       }
@@ -380,21 +378,39 @@ app.get("/api/videos/:id", async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    // Rule 2: A subscribed user can watch it
     if (userId) {
+      // Rule 2a: A subscribed user can watch it
       const subscription = await storage.getActiveSubscription(userId, video.creatorId);
       if (subscription) {
         res.json(video);
         return;
       }
+
+      // Rule 2b: A user who paid PPV for this specific video can watch it
+      const ppvPayment = await db
+        .select()
+        .from(paymentsTable)
+        .where(
+          and(
+            eq(paymentsTable.consumerId, userId),
+            eq(paymentsTable.videoId, video.id),
+            eq(paymentsTable.type, "ppv"),
+            eq(paymentsTable.status, "completed")
+          )
+        )
+        .limit(1);
+
+      if (ppvPayment.length > 0) {
+        res.json(video); // full video including videoUrl and thumbnailUrl
+        return;
+      }
     }
 
-    // Rule 3: Everyone else gets metadata but NO videoUrl
-    // This prevents bypassing the UI to grab the stream URL directly
+    // Rule 3: Everyone else gets metadata but NO videoUrl or thumbnailUrl
     res.json({
       ...video,
-      videoUrl: null,   // strip the actual video URL
-      locked: true,     // tell frontend it's locked
+      videoUrl: null,
+      locked: true,
     });
 
   } catch (error) {
