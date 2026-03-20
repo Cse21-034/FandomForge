@@ -3,6 +3,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { authApi } from "@/lib/api";
+import { queryClient } from "@/lib/queryClient";
 
 export interface User {
   id: string;
@@ -68,7 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const response = await authApi.login(email, password);
       authApi.setToken(response.token);
-      setUser(response.user);
+
+      // FIX 1: Login response only returns {id, username, email, role} — no profileImage.
+      // Fetch full profile immediately so avatar appears right away, no delay.
+      const fullUser = await authApi.getMe();
+      setUser(fullUser);
+
       setError(null);
       return response;
     } catch (err) {
@@ -85,7 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const response = await authApi.register(username, email, password, role);
       authApi.setToken(response.token);
-      setUser(response.user);
+
+      // Same fix: fetch full profile after register so all fields are present
+      const fullUser = await authApi.getMe();
+      setUser(fullUser);
+
       setError(null);
       return response;
     } catch (err) {
@@ -98,9 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // FIX 2: Clear token and user state
     authApi.clearToken();
     setUser(null);
     setError(null);
+
+    // Clear ALL React Query cached data so every component re-renders
+    // immediately with logged-out state — no refresh needed
+    queryClient.clear();
   }, []);
 
   const refreshUser = useCallback(async () => {
