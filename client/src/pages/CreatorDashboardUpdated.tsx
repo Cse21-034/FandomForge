@@ -6,6 +6,7 @@ import { UploadVideoDialog } from "@/components/UploadVideoDialog";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/StatCard";
 import { CollectionCreator } from "@/components/CollectionCreator";
+import { CreatorEarningsDisplay } from "@/components/CreatorEarningsDisplay";
 import { useLocation } from "wouter";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -13,7 +14,7 @@ import {
 } from "recharts";
 import {
   Upload, Video, DollarSign, Users, Eye, Lock, Unlock,
-  TrendingUp, MoreHorizontal, Pencil, Trash2, Plus, LayoutDashboard,
+  TrendingUp, Pencil, Trash2, Plus, LayoutDashboard,
 } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -44,7 +45,7 @@ export default function CreatorDashboardUpdated() {
   const { user, isCreator, loading, logout } = useAuth();
   const [_location, navigate] = useLocation();
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"videos" | "collections">("videos");
+  const [activeTab, setActiveTab] = useState<"videos" | "collections" | "earnings">("videos");
 
   const creatorId = user?.creator?.id;
 
@@ -122,7 +123,8 @@ export default function CreatorDashboardUpdated() {
   return (
     <div className="min-h-screen bg-background mobile-content-pad">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 page-enter">
-        {/* Header */}
+
+        {/* ── Header ── */}
         <div className="flex items-start justify-between mb-6 sm:mb-8 gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -145,7 +147,7 @@ export default function CreatorDashboardUpdated() {
           </Button>
         </div>
 
-        {/* Main stats */}
+        {/* ── Main stats ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <StatCard title="Videos" value={totalVideos} icon={Video} color="primary" />
           <StatCard title="Total Views" value={totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews} icon={Eye} color="accent" />
@@ -159,7 +161,7 @@ export default function CreatorDashboardUpdated() {
           />
         </div>
 
-        {/* Secondary stats */}
+        {/* ── Secondary stats ── */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
             { label: "Free", value: freeVideos, icon: Unlock, color: "#10b981", bg: "hsl(150 60% 42% / 0.08)" },
@@ -178,7 +180,7 @@ export default function CreatorDashboardUpdated() {
           ))}
         </div>
 
-        {/* Charts */}
+        {/* ── Charts ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           {/* Views chart */}
           <div className="bg-card border border-card-border rounded-3xl p-5 lg:col-span-2">
@@ -231,7 +233,7 @@ export default function CreatorDashboardUpdated() {
           </div>
         </div>
 
-        {/* Subscriber growth */}
+        {/* ── Subscriber growth (only on videos tab) ── */}
         {activeTab === "videos" && subsChartData.length > 0 && (
           <div className="bg-card border border-card-border rounded-3xl p-5 mb-6">
             <div className="flex items-center gap-2 mb-5">
@@ -250,7 +252,7 @@ export default function CreatorDashboardUpdated() {
           </div>
         )}
 
-        {/* Tab Navigation */}
+        {/* ── Tab Navigation ── */}
         <div className="flex gap-2 mb-6 border-b border-border">
           <button
             onClick={() => setActiveTab("videos")}
@@ -272,122 +274,134 @@ export default function CreatorDashboardUpdated() {
           >
             Collections
           </button>
+          <button
+            onClick={() => setActiveTab("earnings")}
+            className={`px-4 py-2 font-medium text-sm transition-colors ${
+              activeTab === "earnings"
+                ? "text-primary border-b-2 border-primary -mb-px"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Earnings &amp; Payouts
+          </button>
         </div>
 
-        {/* Videos tab */}
+        {/* ── Videos tab ── */}
         {activeTab === "videos" && (
-        <div className="bg-card border border-card-border rounded-3xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <h3 className="font-display font-semibold">Your Videos</h3>
-            <Button
-              size="sm"
-              onClick={() => setUploadOpen(true)}
-              className="rounded-xl text-xs font-bold text-white border-none h-8"
-              style={{ background: "hsl(var(--primary))" }}
-            >
-              <Plus className="h-3 w-3 mr-1" /> Upload
-            </Button>
-          </div>
-
-          {videosLoading ? (
-            <div className="p-4 space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-16 rounded-2xl skeleton-wave" />
-              ))}
-            </div>
-          ) : videos.length > 0 ? (
-            <div className="divide-y divide-border">
-              {videos.map((video: any) => (
-                <div key={video.id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5 hover:bg-muted/30 transition-colors group">
-                  {/* Thumbnail */}
-                  <div className="w-16 sm:w-20 h-10 sm:h-12 rounded-xl overflow-hidden bg-muted flex-shrink-0">
-                    {video.thumbnailUrl ? (
-                      <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Video className="h-4 w-4 text-muted-foreground/30" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium text-sm truncate max-w-[180px] sm:max-w-none">{video.title}</p>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex-shrink-0 ${
-                          video.type === "paid"
-                            ? "bg-[hsl(350,100%,65%)/0.12] text-[hsl(350,100%,58%)]"
-                            : "bg-emerald-500/10 text-emerald-600"
-                        }`}
-                        style={{
-                          background: video.type === "paid" ? "hsl(350 100% 65% / 0.10)" : "rgb(16 185 129 / 0.10)",
-                          color: video.type === "paid" ? "hsl(350 100% 58%)" : "rgb(5 150 105)",
-                        }}
-                      >
-                        {video.type}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-3 h-3" /> {(video.views || 0).toLocaleString()}
-                      </span>
-                      {video.type === "paid" && (
-                        <span className="flex items-center gap-1">
-                          <DollarSign className="w-3 h-3" /> {video.price}
-                        </span>
-                      )}
-                      <span className="hidden sm:inline">{new Date(video.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      className="p-1.5 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                      onClick={async () => {
-                        if (window.confirm("Are you sure you want to delete this video?")) {
-                          try {
-                            await videoApi.delete(video.id);
-                            refetchVideos();
-                          } catch (err) {
-                            alert("Failed to delete video.");
-                          }
-                        }
-                      }}
-                      title="Delete video"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 px-4">
-              <div className="w-14 h-14 rounded-2xl bg-muted mx-auto flex items-center justify-center mb-4">
-                <Video className="h-7 w-7 text-muted-foreground/30" />
-              </div>
-              <p className="font-medium text-muted-foreground mb-1">No videos yet</p>
-              <p className="text-sm text-muted-foreground/60 mb-5">Upload your first video to get started</p>
+          <div className="bg-card border border-card-border rounded-3xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h3 className="font-display font-semibold">Your Videos</h3>
               <Button
+                size="sm"
                 onClick={() => setUploadOpen(true)}
-                className="rounded-2xl font-bold text-white border-none"
+                className="rounded-xl text-xs font-bold text-white border-none h-8"
                 style={{ background: "hsl(var(--primary))" }}
               >
-                <Upload className="w-4 h-4 mr-2" /> Upload Video
+                <Plus className="h-3 w-3 mr-1" /> Upload
               </Button>
             </div>
-          )}
-        </div>
+
+            {videosLoading ? (
+              <div className="p-4 space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-16 rounded-2xl skeleton-wave" />
+                ))}
+              </div>
+            ) : videos.length > 0 ? (
+              <div className="divide-y divide-border">
+                {videos.map((video: any) => (
+                  <div key={video.id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5 hover:bg-muted/30 transition-colors group">
+                    {/* Thumbnail */}
+                    <div className="w-16 sm:w-20 h-10 sm:h-12 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                      {video.thumbnailUrl ? (
+                        <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Video className="h-4 w-4 text-muted-foreground/30" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm truncate max-w-[180px] sm:max-w-none">{video.title}</p>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex-shrink-0`}
+                          style={{
+                            background: video.type === "paid" ? "hsl(350 100% 65% / 0.10)" : "rgb(16 185 129 / 0.10)",
+                            color: video.type === "paid" ? "hsl(350 100% 58%)" : "rgb(5 150 105)",
+                          }}
+                        >
+                          {video.type}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Eye className="w-3 h-3" /> {(video.views || 0).toLocaleString()}
+                        </span>
+                        {video.type === "paid" && (
+                          <span className="flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" /> {video.price}
+                          </span>
+                        )}
+                        <span className="hidden sm:inline">{new Date(video.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        className="p-1.5 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={async () => {
+                          if (window.confirm("Are you sure you want to delete this video?")) {
+                            try {
+                              await videoApi.delete(video.id);
+                              refetchVideos();
+                            } catch (err) {
+                              alert("Failed to delete video.");
+                            }
+                          }
+                        }}
+                        title="Delete video"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 px-4">
+                <div className="w-14 h-14 rounded-2xl bg-muted mx-auto flex items-center justify-center mb-4">
+                  <Video className="h-7 w-7 text-muted-foreground/30" />
+                </div>
+                <p className="font-medium text-muted-foreground mb-1">No videos yet</p>
+                <p className="text-sm text-muted-foreground/60 mb-5">Upload your first video to get started</p>
+                <Button
+                  onClick={() => setUploadOpen(true)}
+                  className="rounded-2xl font-bold text-white border-none"
+                  style={{ background: "hsl(var(--primary))" }}
+                >
+                  <Upload className="w-4 h-4 mr-2" /> Upload Video
+                </Button>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Collections tab */}
+        {/* ── Collections tab ── */}
         {activeTab === "collections" && creatorId && (
           <CollectionCreator creatorId={creatorId} />
         )}
+
+        {/* ── Earnings & Payouts tab ── */}
+        {activeTab === "earnings" && (
+          <CreatorEarningsDisplay />
+        )}
+
       </div>
 
       <UploadVideoDialog

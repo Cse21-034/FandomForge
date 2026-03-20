@@ -16,7 +16,7 @@ import PayPalClient from "./paypal";
 import { registerReferralRoutes } from "./referral-routes";
 import { v2 as cloudinary } from "cloudinary";
 import { db } from "./db";
-import {comments, watchlist, likes, shares, videoViews, videos as videosTable, payments as paymentsTable, collections as collectionsTable, collectionItems as collectionItemsTable } from "@shared/schema";
+import {comments, watchlist, likes, shares, videoViews, videos as videosTable, payments as paymentsTable, collections as collectionsTable, collectionItems as collectionItemsTable, creatorPayouts } from "@shared/schema";
 
 
 import { eq, and, sql } from "drizzle-orm";
@@ -217,25 +217,19 @@ app.put("/api/auth/profile/image", authenticateToken, async (req: AuthenticatedR
 app.put("/api/auth/creator-settings", authenticateToken, requireRole("creator"),
   async (req: AuthenticatedRequest, res) => {
     try {
-      const { subscriptionPrice, bannerImage } = req.body;
+      const { subscriptionPrice, bannerImage, paypalEmail } = req.body;
       const creator = await storage.getCreatorByUserId(req.user!.userId);
-
-      if (!creator) {
-        res.status(404).json({ error: "Creator profile not found" });
-        return;
-      }
-
+      if (!creator) { res.status(404).json({ error: "Creator profile not found" }); return; }
+ 
       const updates: Record<string, any> = {};
       if (subscriptionPrice !== undefined) {
         const price = parseFloat(String(subscriptionPrice));
-        if (isNaN(price) || price < 0) {
-          res.status(400).json({ error: "Invalid subscription price" });
-          return;
-        }
+        if (isNaN(price) || price < 0) { res.status(400).json({ error: "Invalid subscription price" }); return; }
         updates.subscriptionPrice = price.toFixed(2);
       }
       if (bannerImage) updates.bannerImage = bannerImage;
-
+      if (paypalEmail !== undefined) updates.paypalEmail = paypalEmail.trim() || null;
+ 
       const updated = await storage.updateCreator(creator.id, updates);
       res.json(updated);
     } catch (error) {
@@ -244,6 +238,8 @@ app.put("/api/auth/creator-settings", authenticateToken, requireRole("creator"),
     }
   }
 );
+
+
   // ==================== CREATORS ====================
   app.get("/api/creators", async (_req, res) => {
     try {
@@ -2218,7 +2214,232 @@ app.get("/api/watchlist/collection/check/:collectionId", authenticateToken,
 );
 
 
-
+// ── POST /api/payouts/request ─────────────────────────────────────────
+// Creator requests a payout of their available earnings
+app.post("/api/payouts/request", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const creator = await storage.getCreatorByUserId(req.user!.userId);
+      if (!creator) { res.status(404).json({ error: "Creator profile not found" }); return; }
+ 
+      // Must have a PayPal email set
+      if (!(creator as any).paypalEmail) {
+        res.status(400).json({
+          error: "Please add your PayPal email in settings before requesting a payout"
+        });
+        return;
+      }
+ 
+      // Calculate available earnings (completed payments minus already-paid payouts)
+      const payments = await storage.getPaymentsByCreatorId(creator.id);
+      const totalEarned = payments
+        .filter((p) => p.status === "completed")
+        .reduce((sum, p) => sum + parseFloat(p.creatorEarnings || "0"), 0);
+ 
+      // Sum already paid/processing payouts
+      const existingPayouts = await storage.getCreatorPayouts(creator.id);
+      const alreadyPaid = existingPayouts
+        .filter((p) => ["pending", "processing", "completed"].includes(p.status))
+        .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+ 
+      const available = totalEarned - alreadyPaid;
+      const MIN_PAYOUT = 10; // $10 minimum
+ 
+      if (available < MIN_PAYOUT) {
+        res.status(400).json({
+          error: `Minimum payout is $${MIN_PAYOUT}. Your available balance is $${available.toFixed(2)}`
+        });
+        return;
+      }
+ 
+      // Check no pending payout already exists
+      const pendingExists = existingPayouts.some((p) => p.status === "pending");
+      if (pendingExists) {
+        res.status(400).json({
+          error: "You already have a pending payout request. Please wait for it to be processed."
+        });
+        return;
+      }
+ 
+      // Create payout record
+      const payout = await storage.createCreatorPayout({
+        creatorId: creator.id,
+        amount: available.toFixed(2),
+        status: "pending",
+        paypalEmail: (creator as any).paypalEmail,
+        requestedAt: new Date(),
+      });
+ 
+      res.status(201).json({
+        payout,
+        message: `Payout request of $${available.toFixed(2)} submitted. We'll process it within 3-5 business days.`
+      });
+    } catch (error) {
+      console.error("Payout request error:", error);
+      res.status(500).json({ error: "Failed to create payout request" });
+    }
+  }
+);
+ 
+// ── GET /api/payouts/my ───────────────────────────────────────────────
+// Creator sees their own payout history + available balance
+app.get("/api/payouts/my", authenticateToken, requireRole("creator"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const creator = await storage.getCreatorByUserId(req.user!.userId);
+      if (!creator) { res.status(404).json({ error: "Creator not found" }); return; }
+ 
+      const payments = await storage.getPaymentsByCreatorId(creator.id);
+      const totalEarned = payments
+        .filter((p) => p.status === "completed")
+        .reduce((sum, p) => sum + parseFloat(p.creatorEarnings || "0"), 0);
+ 
+      const payouts = await storage.getCreatorPayouts(creator.id);
+      const alreadyPaid = payouts
+        .filter((p) => ["pending", "processing", "completed"].includes(p.status))
+        .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+ 
+      const available = Math.max(0, totalEarned - alreadyPaid);
+ 
+      res.json({
+        totalEarned: totalEarned.toFixed(2),
+        totalPaidOut: payouts
+          .filter((p) => p.status === "completed")
+          .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0)
+          .toFixed(2),
+        availableBalance: available.toFixed(2),
+        pendingPayout: payouts.find((p) => p.status === "pending")?.amount || null,
+        paypalEmail: (creator as any).paypalEmail || null,
+        payouts: payouts.sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ),
+      });
+    } catch (error) {
+      console.error("Get my payouts error:", error);
+      res.status(500).json({ error: "Failed to fetch payout info" });
+    }
+  }
+);
+ 
+// ── GET /api/admin/payouts ────────────────────────────────────────────
+// Admin sees ALL creator payout requests
+app.get("/api/admin/payouts", authenticateToken, requireRole("admin"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      // Get all payouts with creator info
+      const allPayouts = await db
+        .select({
+          id: creatorPayouts.id,
+          creatorId: creatorPayouts.creatorId,
+          amount: creatorPayouts.amount,
+          status: creatorPayouts.status,
+          paypalPayoutId: creatorPayouts.paypalPayoutId,
+          payoutDate: creatorPayouts.payoutDate,
+          createdAt: creatorPayouts.createdAt,
+        })
+        .from(creatorPayouts)
+        .orderBy(creatorPayouts.createdAt);
+ 
+      // Attach creator + user info
+      const enriched = await Promise.all(
+        allPayouts.map(async (payout) => {
+          const creator = await storage.getCreator(payout.creatorId);
+          const user = creator ? await storage.getUser(creator.userId) : null;
+          return {
+            ...payout,
+            creatorName: user?.username || "Unknown",
+            creatorEmail: user?.email || "",
+            paypalEmail: (creator as any)?.paypalEmail || null,
+          };
+        })
+      );
+ 
+      res.json(enriched);
+    } catch (error) {
+      console.error("Admin get payouts error:", error);
+      res.status(500).json({ error: "Failed to fetch payouts" });
+    }
+  }
+);
+ 
+// ── PATCH /api/admin/payouts/:id ──────────────────────────────────────
+// Admin marks a payout as paid, processing, or rejected
+app.patch("/api/admin/payouts/:id", authenticateToken, requireRole("admin"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { status, paypalPayoutId, note } = req.body;
+ 
+      if (!["processing", "completed", "failed"].includes(status)) {
+        res.status(400).json({ error: "Invalid status" });
+        return;
+      }
+ 
+      const updates: any = {
+        status,
+        ...(paypalPayoutId && { paypalPayoutId }),
+        ...(status === "completed" && { payoutDate: new Date() }),
+      };
+ 
+      const updated = await storage.updateCreatorPayout(id, updates);
+      if (!updated) { res.status(404).json({ error: "Payout not found" }); return; }
+ 
+      // Notify the creator
+      if (status === "completed") {
+        const creator = await storage.getCreator(updated.creatorId);
+        if (creator) {
+          await storage.createNotification({
+            userId: creator.userId,
+            type: "new_message", // reuse type — or add payout_completed to enum
+            content: `Your payout of $${updated.amount} has been sent to your PayPal! 🎉`,
+            relatedUserId: req.user!.userId,
+          });
+        }
+      }
+ 
+      res.json(updated);
+    } catch (error) {
+      console.error("Admin update payout error:", error);
+      res.status(500).json({ error: "Failed to update payout" });
+    }
+  }
+);
+ 
+// ── GET /api/admin/payouts/summary ────────────────────────────────────
+// Admin dashboard — platform earnings overview
+app.get("/api/admin/payouts/summary", authenticateToken, requireRole("admin"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const allPayments = await db.select().from(paymentsTable)
+        .where(eq(paymentsTable.status, "completed"));
+ 
+      const totalRevenue = allPayments.reduce((s, p) => s + parseFloat(p.amount || "0"), 0);
+      const totalCreatorEarnings = allPayments.reduce((s, p) => s + parseFloat(p.creatorEarnings || "0"), 0);
+      const totalPlatformCommission = allPayments.reduce((s, p) => s + parseFloat(p.platformCommission || "0"), 0);
+ 
+      const allPayouts = await db.select().from(creatorPayouts);
+      const totalPaidOut = allPayouts
+        .filter((p) => p.status === "completed")
+        .reduce((s, p) => s + parseFloat(p.amount || "0"), 0);
+      const pendingPayouts = allPayouts.filter((p) => p.status === "pending");
+ 
+      res.json({
+        totalRevenue: totalRevenue.toFixed(2),
+        totalCreatorEarnings: totalCreatorEarnings.toFixed(2),
+        totalPlatformCommission: totalPlatformCommission.toFixed(2),
+        totalPaidOut: totalPaidOut.toFixed(2),
+        outstandingBalance: (totalCreatorEarnings - totalPaidOut).toFixed(2),
+        pendingPayoutCount: pendingPayouts.length,
+        pendingPayoutAmount: pendingPayouts
+          .reduce((s, p) => s + parseFloat(p.amount || "0"), 0)
+          .toFixed(2),
+      });
+    } catch (error) {
+      console.error("Admin summary error:", error);
+      res.status(500).json({ error: "Failed to fetch summary" });
+    }
+  }
+);
 
 
   registerReferralRoutes(app);

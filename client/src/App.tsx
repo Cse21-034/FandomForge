@@ -22,6 +22,7 @@ import PaymentCancelPage from "@/pages/PaymentCancelPage";
 import { useReferralTracker } from "@/hooks/useReferralTracker";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import CollectionPage from "@/pages/CollectionPage";
+import AdminPayoutsPage from "@/pages/AdminPayoutsPage";
 
 function Router() {
   return (
@@ -48,6 +49,7 @@ function Router() {
       {/* Payment */}
       <Route path="/payment-success" component={PaymentSuccessPage} />
       <Route path="/payment-cancel" component={PaymentCancelPage} />
+      <Route path="/admin/payouts" component={AdminPayoutsPage} />
 
       {/* 404 */}
       <Route component={NotFound} />

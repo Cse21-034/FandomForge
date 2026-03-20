@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Camera, Pencil, Check, X, Loader2, User, Mail, Video,
   Users, DollarSign, Eye, Shield, LogOut, ChevronRight,
-  ImagePlus, Sparkles,
+  ImagePlus, Sparkles, Wallet,
 } from "lucide-react";
 
 // ── Avatar upload area ─────────────────────────────────────────────
@@ -258,6 +258,126 @@ function EditableField({
   );
 }
 
+// ── PayPal email editor (NEW) ──────────────────────────────────────
+function PayPalEmailEditor({
+  currentEmail,
+  onSave,
+}: {
+  currentEmail?: string;
+  onSave: (email: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(!currentEmail);
+  const [draft, setDraft] = useState(currentEmail || "");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  const handleSave = async () => {
+    if (!draft.includes("@")) {
+      toast({ title: "Please enter a valid email address", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(draft.trim());
+      setEditing(false);
+      toast({ title: "PayPal email saved ✓" });
+    } catch (err) {
+      toast({
+        title: "Failed to save",
+        description: err instanceof Error ? err.message : "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-card border border-card-border rounded-3xl p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Wallet className="h-4 w-4" style={{ color: "hsl(var(--primary))" }} />
+        <h2 className="font-display font-bold text-sm text-muted-foreground uppercase tracking-wider">
+          Payout Settings
+        </h2>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+        Your PayPal email is where we send your earnings. Make sure it matches your PayPal login.
+      </p>
+
+      {!editing && currentEmail ? (
+        <div className="flex items-center gap-3">
+          <div
+            className="flex items-center gap-2 flex-1 p-3 rounded-2xl"
+            style={{
+              background: "hsl(150 60% 42% / 0.08)",
+              border: "1px solid hsl(150 60% 42% / 0.2)",
+            }}
+          >
+            <Check className="h-4 w-4 flex-shrink-0" style={{ color: "hsl(150 60% 42%)" }} />
+            <code className="text-sm font-mono truncate flex-1">{currentEmail}</code>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl flex-shrink-0"
+            onClick={() => { setDraft(currentEmail); setEditing(true); }}
+          >
+            <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {!currentEmail && (
+            <div
+              className="flex items-start gap-2 p-3 rounded-xl"
+              style={{
+                background: "hsl(43 100% 50% / 0.08)",
+                border: "1px solid hsl(43 100% 50% / 0.25)",
+              }}
+            >
+              <Sparkles className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: "hsl(43 100% 45%)" }} />
+              <p className="text-xs leading-relaxed" style={{ color: "hsl(43 100% 38%)" }}>
+                <strong>Action required:</strong> Add your PayPal email to receive payouts for your content sales.
+              </p>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              type="email"
+              placeholder="your-paypal@email.com"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="rounded-2xl h-11 text-sm flex-1"
+              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+              autoFocus={!currentEmail}
+            />
+            <Button
+              onClick={handleSave}
+              disabled={saving || !draft.includes("@")}
+              className="rounded-2xl h-11 text-white border-none font-bold px-5"
+              style={{ background: "hsl(var(--primary))" }}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </Button>
+            {currentEmail && (
+              <Button
+                variant="outline"
+                className="rounded-2xl h-11"
+                onClick={() => { setDraft(currentEmail); setEditing(false); }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            💡 This is the PayPal account we'll transfer your earnings to. It doesn't need to match your FandomForge email.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main ProfilePage ───────────────────────────────────────────────
 export default function ProfilePage() {
   const { user, isAuthenticated, loading, logout } = useAuth();
@@ -338,6 +458,31 @@ export default function ProfilePage() {
 
   const handleImageUploadComplete = (url: string) => {
     applyUpdate({ profileImage: url });
+  };
+
+  // ── NEW: Save PayPal email ─────────────────────────────────────
+  const handlePayPalEmailSave = async (email: string) => {
+    const res = await fetch(
+      `${import.meta.env.VITE_API_URL || "http://localhost:5000/api"}/auth/creator-settings`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ paypalEmail: email }),
+      }
+    );
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to save PayPal email");
+    }
+    // Optimistically update local creator state
+    if (effectiveUser?.creator) {
+      applyUpdate({
+        creator: { ...effectiveUser.creator, paypalEmail: email } as any,
+      });
+    }
   };
 
   const totalViews = myVideos.reduce(
@@ -500,6 +645,14 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* ── PayPal payout email (NEW — creators only) ── */}
+        {isCreator && (
+          <PayPalEmailEditor
+            currentEmail={(effectiveUser.creator as any)?.paypalEmail}
+            onSave={handlePayPalEmailSave}
+          />
+        )}
+
         {/* ── Recent videos (creator only) ── */}
         {isCreator && myVideos.length > 0 && (
           <div className="bg-card border border-card-border rounded-3xl p-5">
@@ -584,6 +737,7 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );

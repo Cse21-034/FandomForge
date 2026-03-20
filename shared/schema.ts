@@ -40,6 +40,7 @@ export const users = pgTable("users", {
 });
 
 // Creators Table (extends users)
+// ── ADDED: paypalEmail for creator payouts ──
 export const creators = pgTable("creators", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id")
@@ -53,6 +54,7 @@ export const creators = pgTable("creators", {
   totalEarnings: decimal("total_earnings", { precision: 12, scale: 2 })
     .notNull()
     .default("0"),
+  paypalEmail: text("paypal_email"),   // ← NEW: creator's PayPal email for receiving payouts
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -160,6 +162,7 @@ export const payments = pgTable("payments", {
 });
 
 // Creator Payouts Table
+// ── ADDED: paypalEmail (snapshot at request time) + requestedAt ──
 export const creatorPayouts = pgTable("creator_payouts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   creatorId: varchar("creator_id")
@@ -168,7 +171,9 @@ export const creatorPayouts = pgTable("creator_payouts", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   status: payoutStatusEnum("status").notNull().default("pending"),
   paypalPayoutId: text("paypal_payout_id"),
+  paypalEmail: text("paypal_email"),              // ← NEW: snapshot of PayPal email at request time
   payoutDate: timestamp("payout_date"),
+  requestedAt: timestamp("requested_at").notNull().default(sql`now()`), // ← NEW
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

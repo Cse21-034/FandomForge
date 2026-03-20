@@ -438,3 +438,27 @@ export const collectionEngagementApi = {
   checkWatchlist: (collectionId: string) =>
     apiRequest(`/watchlist/collection/check/${collectionId}`, { silentOn401: true }),
 };
+
+
+export const payoutApi = {
+  // Creator endpoints
+  getMyPayouts: () =>
+    apiRequest("/payouts/my"),
+ 
+  requestPayout: () =>
+    apiRequest("/payouts/request", { method: "POST" }),
+ 
+  // Admin endpoints
+  getAllPayouts: () =>
+    apiRequest("/admin/payouts"),
+ 
+  getSummary: () =>
+    apiRequest("/admin/payouts/summary"),
+ 
+  updatePayoutStatus: (id: string, status: string, paypalPayoutId?: string) =>
+    apiRequest(`/admin/payouts/${id}`, {
+      method: "PATCH",
+      body: { status, paypalPayoutId },
+    }),
+};
+ 
