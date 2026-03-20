@@ -16,7 +16,8 @@ import PayPalClient from "./paypal";
 import { registerReferralRoutes } from "./referral-routes";
 import { v2 as cloudinary } from "cloudinary";
 import { db } from "./db";
-import { likes, shares, videoViews, videos as videosTable, payments as paymentsTable, collections as collectionsTable, collectionItems as collectionItemsTable } from "@shared/schema";
+import {comments as commentsTable, watchlist, likes, shares, videoViews, videos as videosTable, payments as paymentsTable, collections as collectionsTable, collectionItems as collectionItemsTable } from "@shared/schema";
+
 
 import { eq, and, sql } from "drizzle-orm";
 
@@ -1932,7 +1933,252 @@ app.get("/api/payments/check-collection/:collectionId", authenticateToken,
 );
 
 
+// =====================================================================
+// COLLECTION ENGAGEMENT ROUTES
+// Add this block to server/routes.ts, inside registerRoutes(),
+// just before the `registerReferralRoutes(app)` line at the bottom.
+// Also ensure these imports are at the top of routes.ts:
+//   import { likes, shares, videoViews, comments as commentsTable,
+//            watchlist, payments as paymentsTable,
+//            collections as collectionsTable,
+//            collectionItems as collectionItemsTable } from "@shared/schema";
+// =====================================================================
 
+// ── COLLECTION LIKES ─────────────────────────────────────────────────
+
+// Like a collection
+app.post("/api/collections/:collectionId/like", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const userId = req.user!.userId;
+
+      const existing = await db.select().from(likes)
+        .where(and(eq(likes.consumerId, userId), eq(likes.collectionId, collectionId)))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return res.status(400).json({ error: "Already liked" });
+      }
+
+      await db.insert(likes).values({ consumerId: userId, collectionId });
+      res.status(201).json({ liked: true });
+    } catch (error) {
+      console.error("Like collection error:", error);
+      res.status(500).json({ error: "Failed to like collection" });
+    }
+  }
+);
+
+// Unlike a collection
+app.delete("/api/collections/:collectionId/like", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const userId = req.user!.userId;
+
+      await db.delete(likes)
+        .where(and(eq(likes.consumerId, userId), eq(likes.collectionId, collectionId)));
+
+      res.json({ liked: false });
+    } catch (error) {
+      console.error("Unlike collection error:", error);
+      res.status(500).json({ error: "Failed to unlike collection" });
+    }
+  }
+);
+
+// Check if collection is liked
+app.get("/api/collections/:collectionId/like", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const userId = req.user!.userId;
+
+      const like = await db.select().from(likes)
+        .where(and(eq(likes.consumerId, userId), eq(likes.collectionId, collectionId)))
+        .limit(1);
+
+      res.json({ liked: like.length > 0 });
+    } catch (error) {
+      console.error("Check collection like error:", error);
+      res.status(500).json({ error: "Failed to check like status" });
+    }
+  }
+);
+
+// ── COLLECTION SHARES ────────────────────────────────────────────────
+
+app.post("/api/collections/:collectionId/share", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const userId = req.user!.userId;
+
+      await db.insert(shares).values({ consumerId: userId, collectionId });
+      res.status(201).json({ shared: true });
+    } catch (error) {
+      console.error("Share collection error:", error);
+      res.status(500).json({ error: "Failed to share collection" });
+    }
+  }
+);
+
+// ── COLLECTION VIEWS ─────────────────────────────────────────────────
+
+app.post("/api/collections/:collectionId/view", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const userId = req.user!.userId;
+
+      // Deduplicate — one view per user per collection
+      const existingView = await db.select().from(videoViews)
+        .where(and(eq(videoViews.userId, userId), eq(videoViews.collectionId, collectionId)))
+        .limit(1);
+
+      if (existingView.length > 0) {
+        const coll = await db.select().from(collectionsTable)
+          .where(eq(collectionsTable.id, collectionId)).limit(1);
+        return res.json({ views: coll[0]?.views ?? 0, alreadyCounted: true });
+      }
+
+      await db.insert(videoViews).values({ userId, collectionId });
+
+      // Increment views counter on collection
+      const updated = await db.update(collectionsTable)
+        .set({ views: sql`${collectionsTable.views} + 1` })
+        .where(eq(collectionsTable.id, collectionId))
+        .returning();
+
+      res.json({ views: updated[0]?.views ?? 0, alreadyCounted: false });
+    } catch (error) {
+      console.error("Collection view error:", error);
+      res.status(500).json({ error: "Failed to record view" });
+    }
+  }
+);
+
+// ── COLLECTION COMMENTS ──────────────────────────────────────────────
+
+app.get("/api/collections/:collectionId/comments", async (req, res) => {
+  try {
+    const { collectionId } = req.params;
+    const result = await db.select().from(comments)
+      .where(eq(comments.collectionId, collectionId))
+      .orderBy(comments.createdAt);
+    res.json(result);
+  } catch (error) {
+    console.error("Get collection comments error:", error);
+    res.status(500).json({ error: "Failed to fetch comments" });
+  }
+});
+
+app.post("/api/collections/:collectionId/comments", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const { content } = req.body;
+      const userId = req.user!.userId;
+
+      if (!content?.trim()) {
+        return res.status(400).json({ error: "Comment content is required" });
+      }
+
+      const comment = await db.insert(comments)
+        .values({ userId, collectionId, content: content.trim() })
+        .returning();
+
+      // Notify the collection's creator
+      const coll = await db.select().from(collectionsTable)
+        .where(eq(collectionsTable.id, collectionId)).limit(1);
+      if (coll[0]) {
+        const creator = await storage.getCreator(coll[0].creatorId);
+        if (creator) {
+          const commenter = await storage.getUser(userId);
+          await storage.createNotification({
+            userId: creator.userId,
+            type: "new_comment",
+            content: `${commenter?.username} commented on your collection "${coll[0].title}"`,
+            relatedUserId: userId,
+          });
+        }
+      }
+
+      res.status(201).json(comment[0]);
+    } catch (error) {
+      console.error("Create collection comment error:", error);
+      res.status(500).json({ error: "Failed to create comment" });
+    }
+  }
+);
+
+// ── COLLECTION WATCHLIST ─────────────────────────────────────────────
+
+app.post("/api/watchlist/collection", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.body;
+      const userId = req.user!.userId;
+
+      if (!collectionId) {
+        return res.status(400).json({ error: "collectionId is required" });
+      }
+
+      const existing = await db.select().from(watchlist)
+        .where(and(eq(watchlist.userId, userId), eq(watchlist.collectionId, collectionId)))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return res.status(400).json({ error: "Collection already in watchlist" });
+      }
+
+      const item = await db.insert(watchlist)
+        .values({ userId, collectionId })
+        .returning();
+
+      res.status(201).json(item[0]);
+    } catch (error) {
+      console.error("Add collection to watchlist error:", error);
+      res.status(500).json({ error: "Failed to add to watchlist" });
+    }
+  }
+);
+
+app.delete("/api/watchlist/collection/:collectionId", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const userId = req.user!.userId;
+
+      await db.delete(watchlist)
+        .where(and(eq(watchlist.userId, userId), eq(watchlist.collectionId, collectionId)));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Remove collection from watchlist error:", error);
+      res.status(500).json({ error: "Failed to remove from watchlist" });
+    }
+  }
+);
+
+app.get("/api/watchlist/collection/check/:collectionId", authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { collectionId } = req.params;
+      const userId = req.user!.userId;
+
+      const result = await db.select().from(watchlist)
+        .where(and(eq(watchlist.userId, userId), eq(watchlist.collectionId, collectionId)))
+        .limit(1);
+
+      res.json({ isInWatchlist: result.length > 0 });
+    } catch (error) {
+      console.error("Check collection watchlist error:", error);
+      res.status(500).json({ error: "Failed to check watchlist" });
+    }
+  }
+);
 
 
 

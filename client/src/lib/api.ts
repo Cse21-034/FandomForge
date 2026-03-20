@@ -398,3 +398,43 @@ export const collectionPaymentApi = {
   checkAccess: (collectionId: string) =>
     apiRequest(`/payments/check-collection/${collectionId}`),
 };
+
+
+// =====================================================================
+// ADD TO client/src/lib/api.ts
+// Add this collectionEngagementApi object alongside your existing apis
+// =====================================================================
+
+export const collectionEngagementApi = {
+  // Likes
+  like: (collectionId: string) =>
+    apiRequest(`/collections/${collectionId}/like`, { method: "POST" }),
+  unlike: (collectionId: string) =>
+    apiRequest(`/collections/${collectionId}/like`, { method: "DELETE" }),
+  isLiked: (collectionId: string) =>
+    apiRequest(`/collections/${collectionId}/like`, { silentOn401: true }),
+
+  // Share
+  share: (collectionId: string) =>
+    apiRequest(`/collections/${collectionId}/share`, { method: "POST" }),
+
+  // Views
+  trackView: (collectionId: string) =>
+    apiRequest(`/collections/${collectionId}/view`, { method: "POST", silentOn401: true }),
+
+  // Comments
+  getComments: (collectionId: string) =>
+    apiRequest(`/collections/${collectionId}/comments`),
+  addComment: (collectionId: string, content: string) =>
+    apiRequest(`/collections/${collectionId}/comments`, { method: "POST", body: { content } }),
+  deleteComment: (commentId: string) =>
+    apiRequest(`/comments/${commentId}`, { method: "DELETE" }),
+
+  // Watchlist
+  addToWatchlist: (collectionId: string) =>
+    apiRequest("/watchlist/collection", { method: "POST", body: { collectionId } }),
+  removeFromWatchlist: (collectionId: string) =>
+    apiRequest(`/watchlist/collection/${collectionId}`, { method: "DELETE" }),
+  checkWatchlist: (collectionId: string) =>
+    apiRequest(`/watchlist/collection/check/${collectionId}`, { silentOn401: true }),
+};

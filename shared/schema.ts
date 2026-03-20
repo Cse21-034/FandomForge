@@ -82,20 +82,18 @@ export const videos = pgTable("videos", {
 });
 
 // ── collections ─────────────────────────────────────────────────────
-// IMPORTANT: collections must be defined BEFORE payments
-// because payments has a FK to collections.id
 export const collections = pgTable("collections", {
-  // FIX: use varchar to match creators.id type (was uuid, causing FK type mismatch)
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   creatorId: varchar("creator_id")
     .notNull()
     .references(() => creators.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
-  type: text("type").notNull().default("series"), // "series" | "course" | "gallery"
+  type: text("type").notNull().default("series"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("9.99"),
   thumbnailUrl: text("thumbnail_url"),
   isPublished: boolean("is_published").notNull().default(false),
+  views: integer("views").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -109,7 +107,7 @@ export const collectionItems = pgTable("collection_items", {
   position: integer("position").notNull().default(0),
   itemType: text("item_type").notNull().default("video"),
   videoId: varchar("video_id").references(() => videos.id, { onDelete: "set null" }),
-  videoUrl: text("video_url"),        // ← ADD THIS — stores Cloudinary URL directly
+  videoUrl: text("video_url"),
   imageUrl: text("image_url"),
   textContent: text("text_content"),
   title: text("title"),
@@ -136,7 +134,6 @@ export const subscriptions = pgTable("subscriptions", {
 });
 
 // Payments Table
-// FIX: collections is now defined above this, so the FK reference works correctly
 export const payments = pgTable("payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   consumerId: varchar("consumer_id")
@@ -148,7 +145,6 @@ export const payments = pgTable("payments", {
   videoId: varchar("video_id").references(() => videos.id, {
     onDelete: "set null",
   }),
-  // FIX: collectionId is now varchar to match collections.id type
   collectionId: varchar("collection_id").references(() => collections.id, {
     onDelete: "set null",
   }),
@@ -176,15 +172,18 @@ export const creatorPayouts = pgTable("creator_payouts", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-// Likes Table
+// ─────────────────────────────────────────────────────────────────────
+// Likes Table — supports both videos AND collections (one nullable FK)
+// ─────────────────────────────────────────────────────────────────────
 export const likes = pgTable("likes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   consumerId: varchar("consumer_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   videoId: varchar("video_id")
-    .notNull()
     .references(() => videos.id, { onDelete: "cascade" }),
+  collectionId: varchar("collection_id")
+    .references(() => collections.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -195,46 +194,56 @@ export const shares = pgTable("shares", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   videoId: varchar("video_id")
-    .notNull()
     .references(() => videos.id, { onDelete: "cascade" }),
+  collectionId: varchar("collection_id")
+    .references(() => collections.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-// Video Views Table (track unique user views)
+// ─────────────────────────────────────────────────────────────────────
+// Video/Collection Views Table
+// ─────────────────────────────────────────────────────────────────────
 export const videoViews = pgTable("video_views", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   videoId: varchar("video_id")
-    .notNull()
     .references(() => videos.id, { onDelete: "cascade" }),
+  collectionId: varchar("collection_id")
+    .references(() => collections.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-// Comments Table
+// ─────────────────────────────────────────────────────────────────────
+// Comments Table — supports both videos AND collections
+// ─────────────────────────────────────────────────────────────────────
 export const comments = pgTable("comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   videoId: varchar("video_id")
-    .notNull()
     .references(() => videos.id, { onDelete: "cascade" }),
+  collectionId: varchar("collection_id")
+    .references(() => collections.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-// Watchlist Table
+// ─────────────────────────────────────────────────────────────────────
+// Watchlist Table — supports both videos AND collections
+// ─────────────────────────────────────────────────────────────────────
 export const watchlist = pgTable("watchlist", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   videoId: varchar("video_id")
-    .notNull()
     .references(() => videos.id, { onDelete: "cascade" }),
+  collectionId: varchar("collection_id")
+    .references(() => collections.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
