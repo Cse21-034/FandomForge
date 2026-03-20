@@ -1541,7 +1541,27 @@ app.get("/api/collections", async (req, res) => {
       .from(collectionsTable)
       .where(eq(collectionsTable.isPublished, true))
       .orderBy(collectionsTable.createdAt);
-    res.json(all);
+ 
+    // For each collection, attach the first item so the card can derive a thumbnail
+    const enriched = await Promise.all(
+      all.map(async (col) => {
+        const firstItems = await db
+          .select()
+          .from(collectionItemsTable)
+          .where(eq(collectionItemsTable.collectionId, col.id))
+          .orderBy(collectionItemsTable.position)
+          .limit(3); // grab a few in case position 1 has no media
+ 
+        return {
+          ...col,
+          itemCount: undefined, // will be counted below
+          items: firstItems,    // CollectionCard uses items[0] for thumbnail
+          views: col.views ?? 0,
+        };
+      })
+    );
+ 
+    res.json(enriched);
   } catch (error) {
     console.error("Get collections error:", error);
     res.status(500).json({ error: "Failed to fetch collections" });
@@ -1557,8 +1577,25 @@ app.get("/api/collections/creator/:creatorId", authenticateToken,
         res.status(403).json({ error: "Forbidden" });
         return;
       }
-      const cols = await storage.getCollectionsByCreatorId(req.params.creatorId);
-      res.json(cols);
+      const cols = await db
+        .select()
+        .from(collectionsTable)
+        .where(eq(collectionsTable.creatorId, req.params.creatorId))
+        .orderBy(collectionsTable.createdAt);
+ 
+      const enriched = await Promise.all(
+        cols.map(async (col) => {
+          const firstItems = await db
+            .select()
+            .from(collectionItemsTable)
+            .where(eq(collectionItemsTable.collectionId, col.id))
+            .orderBy(collectionItemsTable.position)
+            .limit(3);
+          return { ...col, items: firstItems, views: col.views ?? 0 };
+        })
+      );
+ 
+      res.json(enriched);
     } catch (error) {
       console.error("Get creator collections error:", error);
       res.status(500).json({ error: "Failed to fetch collections" });
