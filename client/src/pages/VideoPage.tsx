@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { videoApi, creatorApi, engagementApi, subscriptionApi } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { PPVCheckout, SubscriptionCheckout } from "@/components/PayPalCheckout";
 
@@ -39,6 +39,7 @@ export default function VideoPage() {
   const [_location, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isLiked, setIsLiked] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [hasPPVAccess, setHasPPVAccess] = useState(false); // ── NEW
@@ -103,7 +104,15 @@ export default function VideoPage() {
       .catch(() => {});
     // ── NEW: also check if user bought this specific video via PPV
     if (video.type === "paid" && videoId) {
-      checkPPVAccess(videoId).then(setHasPPVAccess).catch(() => {});
+      checkPPVAccess(videoId).then((access) => {
+        setHasPPVAccess(access);
+        // If access confirmed, invalidate cache and force fresh server fetch
+        // so videoUrl and thumbnail are returned correctly by the server
+        if (access) {
+          queryClient.invalidateQueries({ queryKey: ["video", videoId] });
+          refetchVideo();
+        }
+      }).catch(() => {});
     }
   }, [video?.creatorId, video?.type, isAuthenticated, videoId]);
 
