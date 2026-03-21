@@ -6,7 +6,9 @@ import {
   hashPassword,
   verifyPassword,
   verifyToken,
+   needsRehash
 } from "./auth";
+
 import {
   authenticateToken,
   requireRole,
@@ -43,96 +45,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== AUTH ====================
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const { username, email, password, role } = req.body;
-      if (!username || !email || !password) {
-        return res.status(400).json({ error: "Username, email, and password are required" });
-      }
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(400).json({ error: "Email already registered" });
-      }
-      const hashedPassword = hashPassword(password);
-      const user = await storage.createUser({
-        username,
-        email,
-        password: hashedPassword,
-      } as any);
-      if (role === "creator") {
-        await storage.createCreator({
-          userId: user.id,
-          subscriptionPrice: "9.99",
-        });
-      }
-      const token = generateToken({
+ app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { username, email, password, role } = req.body;
+
+    // Basic validation
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: "Username, email, and password are required" });
+    }
+
+    // Input length limits
+    if (username.length > 50) return res.status(400).json({ error: "Username too long" });
+    if (email.length > 255) return res.status(400).json({ error: "Email too long" });
+    if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (password.length > 128) return res.status(400).json({ error: "Password too long" });
+
+    // SECURITY: Whitelist allowed roles — never trust client-supplied role
+    const allowedRoles = ["consumer", "creator"];
+    const safeRole: "consumer" | "creator" = allowedRoles.includes(role) 
+      ? role as "consumer" | "creator"
+      : "consumer";
+
+    const existingUser = await storage.getUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    const hashedPassword = hashPassword(password);
+    const user = await storage.createUser({
+      username: username.trim(),
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
+      role: safeRole,
+    } as any);
+
+    if (safeRole === "creator") {
+      await storage.createCreator({
         userId: user.id,
-        email: user.email,
-        role: role || "consumer",
+        subscriptionPrice: "9.99",
       });
-      return res.status(201).json({
-        user: { id: user.id, username: user.username, email: user.email, role: role || "consumer" },
-        token,
-      });
-    } catch (error) {
-      console.error("Register error:", error);
-      const message = error instanceof Error ? error.message : "Registration failed";
-      return res.status(500).json({ error: message });
     }
-  });
 
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        res.status(400).json({ error: "Email and password are required" });
-        return;
-      }
-      const user = await storage.getUserByEmail(email);
-      if (!user) { res.status(401).json({ error: "Invalid credentials" }); return; }
-      if (!verifyPassword(password, user.password)) {
-        res.status(401).json({ error: "Invalid credentials" }); return;
-      }
-      let role: "consumer" | "creator" | "admin" = "consumer";
-      if (user.role) {
-        role = user.role as "consumer" | "creator" | "admin";
-      } else {
-        const creator = await storage.getCreatorByUserId(user.id);
-        if (creator) role = "creator";
-      }
-      const token = generateToken({ userId: user.id, email: user.email, role });
-      res.json({ user: { id: user.id, username: user.username, email: user.email, role }, token });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed" });
-    }
-  });
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: safeRole,
+    });
 
-  app.get("/api/auth/me", authenticateToken, async (req: AuthenticatedRequest, res) => {
-    try {
-      const user = await storage.getUser(req.user!.userId);
-      if (!user) { res.status(404).json({ error: "User not found" }); return; }
-      const creator = await storage.getCreatorByUserId(user.id);
-      res.json({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: req.user!.role,
-        bio: user.bio,
-        profileImage: user.profileImage,
-        creator: creator ? {
-          id: creator.id,
-          subscriptionPrice: creator.subscriptionPrice,
-          bannerImage: creator.bannerImage,
-          totalSubscribers: creator.totalSubscribers,
-          totalEarnings: creator.totalEarnings,
-        } : null,
-      });
-    } catch (error) {
-      console.error("Get me error:", error);
-      res.status(500).json({ error: "Failed to fetch user" });
+    return res.status(201).json({
+      user: { id: user.id, username: user.username, email: user.email, role: safeRole },
+      token,
+    });
+  } catch (error) {
+    console.error("Register error:", error);
+    return res.status(500).json({ error: "Registration failed" });
+    // SECURITY: Never expose internal error messages to client
+  }
+});
+
+ app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      res.status(400).json({ error: "Email and password are required" });
+      return;
     }
-  });
+
+    const user = await storage.getUserByEmail(email);
+
+    // SECURITY: Same error message for wrong email OR wrong password
+    // Never reveal which one is wrong (prevents user enumeration)
+    if (!user || !verifyPassword(password, user.password)) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+
+// Auto-migrate old weak password hashes to new strong format
+if (needsRehash(user.password)) {
+  const newHash = hashPassword(password);
+  await storage.updateUser(user.id, { password: newHash });
+}
+
+
+    // SECURITY: Always read role from DB — never from token or client
+    const dbRole = (user.role as "consumer" | "creator" | "admin") || "consumer";
+
+    const token = generateToken({ userId: user.id, email: user.email, role: dbRole });
+    res.json({
+      user: { id: user.id, username: user.username, email: user.email, role: dbRole },
+      token,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+ app.get("/api/auth/me", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const user = await storage.getUser(req.user!.userId);
+    if (!user) { 
+      res.status(404).json({ error: "User not found" }); 
+      return; 
+    }
+
+    const creator = await storage.getCreatorByUserId(user.id);
+
+    // SECURITY: Always read role from DB — ignores stale JWT role
+    const dbRole = (user.role as "consumer" | "creator" | "admin") || "consumer";
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: dbRole,
+      bio: user.bio,
+      profileImage: user.profileImage,
+      creator: creator ? {
+        id: creator.id,
+        subscriptionPrice: creator.subscriptionPrice,
+        bannerImage: creator.bannerImage,
+        totalSubscribers: creator.totalSubscribers,
+        totalEarnings: creator.totalEarnings,
+      } : null,
+    });
+  } catch (error) {
+    console.error("Get me error:", error);
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
  // =====================================================================
 // ADD THESE ROUTES to server/routes.ts
 // Place them after the existing auth routes section

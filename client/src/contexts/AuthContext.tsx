@@ -43,6 +43,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = authApi.getToken();
     if (token) {
+      // Check if token is expired before fetching user
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp * 1000 < Date.now()) {
+          // Token expired — clear it and don't fetch
+          authApi.clearToken();
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Token is malformed — clear it
+        authApi.clearToken();
+        setLoading(false);
+        return;
+      }
       fetchUser();
     } else {
       setLoading(false);

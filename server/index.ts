@@ -1,23 +1,23 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// CORS configuration for production deployment
+// ── CORS ─────────────────────────────────────────────────────────────
 const corsOptions = {
-  origin: process.env.NODE_ENV === "production" 
+  origin: process.env.NODE_ENV === "production"
     ? (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        // Allow requests from Vercel frontend and any subdomain during development
         const allowedOrigins = [
           "https://fandom-forge.vercel.app",
           "https://fandomforge.vercel.app",
           process.env.FRONTEND_URL,
           "http://localhost:5173",
-          "http://localhost:3000"
+          "http://localhost:3000",
         ].filter(Boolean);
-        
+
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
@@ -28,14 +28,81 @@ const corsOptions = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
 };
 
 app.use(cors(corsOptions));
-// Standard payload limits - large files now upload directly to Cloudinary
+
+// ── RATE LIMITERS ────────────────────────────────────────────────────
+
+// Auth endpoints — strict: 10 attempts per 15 minutes
+// Protects against brute-force login and mass registration attacks
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { error: "Too many attempts, please try again in 15 minutes" },
+  standardHeaders: true,  // Return rate limit info in RateLimit-* headers
+  legacyHeaders: false,   // Disable X-RateLimit-* headers
+  skipSuccessfulRequests: false,
+});
+
+// Payment endpoints — moderate: 20 requests per 15 minutes
+// Prevents payment abuse / card testing attacks
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: "Too many payment requests, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Upload endpoints — moderate: 30 requests per hour
+// Prevents storage abuse from mass uploads
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 30,
+  message: { error: "Upload limit reached, please try again in an hour" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// General API — relaxed: 300 requests per minute
+// Catches runaway clients / scrapers without affecting normal use
+const generalApiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300,
+  message: { error: "Too many requests, please slow down" },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Skip rate limiting for health checks
+  skip: (req) => req.path === "/api/health",
+});
+
+// ── Apply rate limiters BEFORE body parsing ───────────────────────────
+// Auth — most restrictive, applied first
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+
+// Payments
+app.use("/api/payments", paymentLimiter);
+
+// Uploads
+app.use("/api/videos/upload", uploadLimiter);
+app.use("/api/videos", (req, res, next) => {
+  // Only limit POST (create) not GET (browse)
+  if (req.method === "POST") return uploadLimiter(req, res, next);
+  next();
+});
+
+// General API — applied to all remaining /api routes
+app.use("/api", generalApiLimiter);
+
+// ── BODY PARSING ──────────────────────────────────────────────────────
+// Standard payload limits - large files upload directly to Cloudinary
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// ── REQUEST LOGGING ───────────────────────────────────────────────────
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -66,28 +133,36 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── ROUTES ────────────────────────────────────────────────────────────
 (async () => {
   const server = await registerRoutes(app);
 
-  // Error handling middleware - must be after all routes
+  // Error handling middleware — must be after all routes
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    // Handle rate limit errors gracefully
+    if (err.status === 429) {
+      return res.status(429).json({
+        error: err.message || "Too many requests",
+        status: 429,
+      });
+    }
+
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     console.error("API Error:", {
       status,
       message,
-      stack: err.stack
+      stack: err.stack,
     });
 
-    // Ensure we're responding with JSON
     if (res.headersSent) {
       return;
     }
 
-    res.status(status).json({ 
+    res.status(status).json({
       error: message,
-      status 
+      status,
     });
   });
 
@@ -96,25 +171,24 @@ app.use((req, res, next) => {
     res.status(404).json({ error: "Not Found" });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Setup Vite in development, serve static in production
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
+  // ALWAYS serve on the port specified in PORT env variable
   // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  const port = parseInt(process.env.PORT || "5000", 10);
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      log(`serving on port ${port}`);
+    }
+  );
 })();
